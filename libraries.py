@@ -4,3 +4,5 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import os
 from scipy.special import gamma
+import warnings
+warnings.filterwarnings("error")

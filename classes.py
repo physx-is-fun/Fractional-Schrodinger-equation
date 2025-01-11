@@ -2,36 +2,34 @@ from libraries import *
 from variables import *
 
 # Defining a class for the simulation parameters
-# # Class for holding info about the simulation params
+# Class for holding info about the simulation params
 class SIM_config:
-    def __init__(self,N,time_window,frequency0,wavelength0):
-        self.wavelength0 = wavelength0 
+    def __init__(self,N,time_window,duration,wavelength0,alpha):
+        self.alpha = alpha
         self.number_of_points=N
+        self.wavelength0 = wavelength0                                             # Central wavelength
+        self.duration = 1                                                          # Dimensonless duration
         dt = time_window / N
-        self.time_step = dt
+        self.time_step = dt / duration                                             # Dimensionless time step
         t = np.linspace(0,time_window,N)                                                                                  
         t = t - np.mean(t)
-        self.t = t 
-        f = fftshift(fftfreq(N,d=dt))
-        self.f=f                                         
-        self.frequency0 = frequency0
-        f_rel = f + frequency0
-        self.f_rel = f_rel
-        wavelength = speed_of_light / f
-        self.wavelength = wavelength                                                           
-        wavelength_rel = wavelength + wavelength0
-        self.wavelength_rel = wavelength_rel
+        self.t = t / duration                                                      # Dimensionless time grid
+        f = fftshift(fftfreq(N,d=dt/duration))                                                                               
+        frequency0 = speed_of_light / wavelength0                                  # Central frequency
+        self.f = f                                                                        
+        self.frequency0 = 1                                               
+        f_rel = f + 1                                                                                      
+        self.f_rel = f_rel                                                         
 
 # Class for holding info about the fiber
 class Fiber_config:
-    def __init__(self,nsteps,L,gamma,beta2,alpha_dB_per_km):
+    def __init__(self,nsteps,length,nonlinear_length,dispersion_length,alpha_dB_per_m):
         self.nsteps=nsteps
-        self.ntraces=nsteps+1                                           
-        self.dz=L/nsteps
-        self.zlocs_array=np.linspace(0,L,nsteps)
-        #dz = 1e-14
-        #self.dz = dz
-        #self.zlocs_array=np.linspace(0,nsteps*dz,nsteps)                       
-        self.gamma=gamma
-        self.beta2=beta2
-        self.alpha_dB_per_km=alpha_dB_per_km
+        self.length = length
+        dz = length / nsteps                                                       
+        self.dz = dz / length                                                      # Dimensionless spatial step
+        zlocs_array=np.linspace(0,length,nsteps)                                   
+        self.zlocs_array = zlocs_array / length                                    # Dimensionless spatial grid                                   
+        self.nonlinear_length = nonlinear_length
+        self.dispersion_length = dispersion_length
+        self.alpha_dB_per_m = alpha_dB_per_m 
