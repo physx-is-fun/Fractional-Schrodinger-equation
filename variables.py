@@ -1,5 +1,5 @@
 from libraries import *
-
+'''
 # constants
 pi = np.pi
 speed_of_light=3*1e8 # Speed of light [m/s]
@@ -17,11 +17,12 @@ amplitude=np.sqrt(peak_power)                               # Electrical field s
 N=2**10 #2**10                                              # Number of points                                                    
 #dt=0.01*1e-15                                              # Time resolution [s]
 Time_window=1000*1e-15                                      # Time window [s]
-theta=0.8                                                   # Fractional order
+theta=0.1                                                   # Fractional order
+chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-3 #1e-3                                                                  # Fiber length [m]
-nsteps=2**10 #2**10                                                                # Number of steps we divide the fiber into
+nsteps=2**13 #2**10                                                                # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                       # Effective mode diameter [um] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                               # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
@@ -33,10 +34,11 @@ alpha_dB_per_m=0.2*1e-3                                                         
 # Some useful parameters
 nonlinear_length=1/(gammaconstant*peak_power)
 dispersion_length=(duration**2)/(np.abs(beta2))
+'''
 
 # Fractional order between 0.1 and 0.9
 
-'''
+
 # constants
 pi = np.pi
 speed_of_light=300 # Speed of light [nm/fs]
@@ -54,11 +56,12 @@ amplitude = np.sqrt(peak_power)                             # Electrical field s
 N= 2**10 #2**10                                             # Number of points                                                    
 #dt = 0.01                                                  # Time resolution [fs]
 Time_window=1000                                            # Time window [fs]
-theta = 0.8                                                 # Order of the fractional derivative
+theta = 1.0                                                 # Order of the fractional derivative
+chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-6 #1e-6                                                                  # Fiber length [km]
-nsteps=2**14 #2**15                                                                # Number of steps we divide the fiber into
+nsteps=2**13 #2**15                                                                # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                       # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                               # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
@@ -73,4 +76,3 @@ alpha_dB_per_km=0.2                                                             
 # Some useful parameters
 nonlinear_length=1/(gammaconstant*peak_power)
 dispersion_length=(duration**2)/(np.abs(beta2))
-'''

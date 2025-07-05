@@ -31,6 +31,9 @@ def GaussianPulseTime(time,amplitude,duration):
     return amplitude*np.exp(-2*np.log(2)*((time)/(duration))**2)*(1+0j)
     #return amplitude*np.exp(-2*np.log(2)*((time)/(duration))**2)*np.exp(1j*2*pi*time*frequency0)
 
+def chirpedGaussianPulseTime(time,amplitude,duration,chirp):
+    return amplitude*np.exp(-((1+1j*chirp)/2)*(time/duration)**2)
+
 def GaussianPulseFrequency(frequency,frequency0,amplitude,duration):
     return 2*amplitude*duration*np.sqrt(pi/(8*np.log(2)))*np.exp(-((duration**2)/(8*np.log(2)))*(2*pi*frequency - 2*pi*frequency0)**2)*(1+0j)
 
@@ -61,8 +64,20 @@ def GaussianSpectrum(time,frequency,amplitude,bandwidth):
 # Find the FWHM of the frequency/time domain of the signal
 def FWHM(X, Y):
     deltax = X[1] - X[0]
-    half_max = max(Y) / 2.
+    half_max = max(Y) * 0.5
     l = np.where(Y > half_max, 1, 0)
+    return np.sum(l) * deltax
+
+def FW5percentM(X, Y):
+    deltax = X[1] - X[0]
+    fivepercent_max = max(Y) * 0.05
+    l = np.where(Y > fivepercent_max, 1, 0)
+    return np.sum(l) * deltax
+
+def FW95percentM(X, Y):
+    deltax = X[1] - X[0]
+    ninetyfivepercent_max = max(Y) * 0.95
+    l = np.where(Y > ninetyfivepercent_max, 1, 0)
     return np.sum(l) * deltax
 
 def SecondTimeDerivative(sim,pulseVector):
@@ -79,7 +94,7 @@ def SPM_term(fiber,zeta,pulseVector):
     return - 1j * (fiber.length / fiber.nonlinear_length) * np.exp(-fiber.alpha_dB_per_m * fiber.length * zeta) * getPower(pulseVector) * pulseVector
 
 def RightHandSide(fiber,sim,zeta,pulseVector):
-    return GVD_term(fiber,sim,pulseVector) + SPM_term(fiber,zeta,pulseVector)
+    return GVD_term(fiber,sim,pulseVector) #+ SPM_term(fiber,zeta,pulseVector)
 
 def Euler(fiber,sim,zeta,pulseVector):
     return pulseVector + fiber.dz * RightHandSide(fiber,sim,zeta,pulseVector)

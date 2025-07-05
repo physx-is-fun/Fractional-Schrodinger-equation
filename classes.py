@@ -4,16 +4,18 @@ from variables import *
 # Defining a class for the simulation parameters
 # Class for holding info about the simulation params
 class SIM_config:
-    def __init__(self,N,time_window,duration,wavelength0,alpha):
+    def __init__(self,N,time_window,duration,wavelength0,alpha,chirp):
+        self.chirp = chirp
         self.alpha = alpha
         self.number_of_points=N
         self.wavelength0 = wavelength0                                             # Central wavelength
         self.duration = 1                                                          # Dimensonless duration
-        dt = time_window / N
-        self.time_step = dt / duration                                             # Dimensionless time step
+        #dt = time_window / N                             
         t = np.linspace(0,time_window,N)                                                                                  
         t = t - np.mean(t)
+        dt = abs(t[1] - t[0])
         self.t = t / duration                                                      # Dimensionless time grid
+        self.time_step = dt / duration 
         f = fftshift(fftfreq(N,d=dt/duration))                                                                               
         frequency0 = speed_of_light / wavelength0                                  # Central frequency
         self.f = f                                                                        
