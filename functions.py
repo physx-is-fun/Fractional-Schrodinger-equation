@@ -94,7 +94,7 @@ def SPM_term(fiber,zeta,pulseVector):
     return - 1j * (fiber.length / fiber.nonlinear_length) * np.exp(-fiber.alpha_dB_per_m * fiber.length * zeta) * getPower(pulseVector) * pulseVector
 
 def RightHandSide(fiber,sim,zeta,pulseVector):
-    return GVD_term(fiber,sim,pulseVector) #+ SPM_term(fiber,zeta,pulseVector)
+    return SPM_term(fiber,zeta,pulseVector) #+ GVD_term(fiber,sim,pulseVector)
 
 def Euler(fiber,sim,zeta,pulseVector):
     return pulseVector + fiber.dz * RightHandSide(fiber,sim,zeta,pulseVector)
