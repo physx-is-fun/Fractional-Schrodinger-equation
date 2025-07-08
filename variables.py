@@ -58,7 +58,7 @@ peak_power=pulse_energy/duration                            # Pulse peak power [
 amplitude = np.sqrt(peak_power)                             # Electrical field strength amplitude in units of sqrt(W)
 N= 2**10 #2**10                                             # Number of points                                                    
 #dt = 0.01                                                  # Time resolution [fs]
-Time_window=1000                                            # Time window [fs]
+Time_window=2000                                            # Time window [fs]
 theta = 1.0                                                 # Order of the fractional derivative
 chirp = 0                                                   # Chirp parameter
 
