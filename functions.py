@@ -2,6 +2,8 @@ from variables import *
 from libraries import *
 from classes import *
 
+#functions.py
+
 # Defining fuctions to calculating the phase, chirp and wavelet
 def getPhase(pulse):
     phi=np.unwrap(np.angle(pulse)) #Get phase starting from 1st entry
@@ -94,7 +96,7 @@ def SPM_term(fiber,zeta,pulseVector):
     return - 1j * (fiber.length / fiber.nonlinear_length) * np.exp(-fiber.alpha_dB_per_m * fiber.length * zeta) * getPower(pulseVector) * pulseVector
 
 def RightHandSide(fiber,sim,zeta,pulseVector):
-    return SPM_term(fiber,zeta,pulseVector) #+ GVD_term(fiber,sim,pulseVector)
+    return SPM_term(fiber,zeta,pulseVector) + GVD_term(fiber,sim,pulseVector)
 
 def Euler(fiber,sim,zeta,pulseVector):
     return pulseVector + fiber.dz * RightHandSide(fiber,sim,zeta,pulseVector)
@@ -109,17 +111,19 @@ def RK4(fiber,sim,zeta,pulseVector):
 def EFORK3(fiber,sim,zeta,pulseVector):
     alpha = sim.alpha
     # Precompute constants
-    w1 = (8 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) - (6 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) + (gamma(1 + 2*alpha) * gamma(1 + 3*alpha) * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (gamma(1 + 3*alpha))
-    w2 = 2 * gamma(1 + alpha)**2 * (4 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) * gamma(1 + 2*alpha) * gamma(1 + 3*alpha)
-    w3 = -8 * gamma(1 + alpha)**2 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) * gamma(1 + 2*alpha) * gamma(1 + 3*alpha)
-    a11 = 12 * gamma(alpha + 1)**2
-    a21 = gamma(1 + alpha)**2 * gamma(1 + 2*alpha) + 2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha) * 4 * gamma(1 + alpha)**2 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))
-    a22 = -gamma(1 + 2*alpha)**4 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))
+    w1 = (8 * gamma(1 + alpha)**3 * gamma(1 + 2*alpha)**2 - 6 * gamma(1+alpha)**3 * gamma(1 + 3*alpha) + gamma(1 + 2*alpha) * gamma(1 + 3*alpha)) / (gamma(1 + alpha) * gamma(1 + 2*alpha) * gamma (1 + 3*alpha))
+    w2 = (2 * gamma(1 + alpha)**2 * (4 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))) / (gamma(1 + 2*alpha) * gamma(1 + 3*alpha)) 
+    w3 = -8 * gamma(1 + alpha)**2 * (4 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) / (gamma(1 + 2*alpha) * gamma(1 + 3*alpha))
+    a11 = 1 / 2 * gamma(alpha + 1)**2
+    a21 = gamma(1 + alpha)**2 * gamma(1 + 2*alpha) + 2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha) / (4 * gamma(1 + alpha)**2 * (2 * gamma(1 + 2 * alpha)**2 - gamma(1 + 3*alpha)))
+    a22 = -gamma(1 + 2*alpha) / (4 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)))
+    c2 = (1 / (2 * gamma(1 + alpha))) ** (1/alpha)
+    c3 = (1 / (4 * gamma(1 + alpha))) ** (1/alpha)
 
     # We apply the Runge-Kutta method (modified for fractional derivatives)
-    K1 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta, pulseVector)
-    K2 = (fiber.dz)**alpha * RightHandSide(fiber,sim, zeta, pulseVector + a11 * K1)
-    K3 = (fiber.dz)**alpha * RightHandSide(fiber,sim, zeta, pulseVector + a22 * K2 + a21 * K1)
+    K1 = (fiber.dz)**alpha * RightHandSide(fiber, sim, zeta, pulseVector)
+    K2 = (fiber.dz)**alpha * RightHandSide(fiber, sim, zeta + c2 * fiber.dz, pulseVector + a11 * K1)
+    K3 = (fiber.dz)**alpha * RightHandSide(fiber, sim, zeta + c3 * fiber.dz, pulseVector + a22 * K2 + a21 * K1)
 
     return pulseVector + w1 * K1 + w2 * K2 + w3 * K3
 

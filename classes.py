@@ -1,6 +1,8 @@
 from libraries import *
 from variables import *
 
+#classes.py
+
 # Defining a class for the simulation parameters
 # Class for holding info about the simulation params
 class SIM_config:

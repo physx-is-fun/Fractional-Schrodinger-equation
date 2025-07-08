@@ -1,4 +1,7 @@
 from libraries import *
+
+#variables.py
+
 '''
 # constants
 pi = np.pi
@@ -61,7 +64,7 @@ chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-6 #1e-6                                                                  # Fiber length [km]
-nsteps=2**13 #2**15                                                                # Number of steps we divide the fiber into
+nsteps=2**10 #2**14                                                                # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                       # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                               # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
