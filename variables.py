@@ -37,8 +37,8 @@ alpha_dB_per_m=0.2*1e-3                                                         
 # Some useful parameters
 nonlinear_length=1/(gammaconstant*peak_power)
 dispersion_length=(duration**2)/(np.abs(beta2))
-'''
 
+'''
 # Fractional order between 0.1 and 0.9
 
 
@@ -50,7 +50,7 @@ speed_of_light=300 # Speed of light [nm/fs]
 # Initialize Gaussian pulse parameters (OCTAVIUS-85M-HP from THORLABS) https://www.thorlabs.com/thorproduct.cfm?partnumber=OCTAVIUS-85M-HP
 wavelength0=800                                             # Pulse central wavelengt [nm]
 frequency0=speed_of_light/wavelength0                       # Pulse central frequency [Hz] 0.375*1e15 Hz = 0.375 PHz which equals to 800 nm
-duration=8                                                  # Pulse duration in FWHM [s]
+duration=8                                                  # Pulse duration in FWHM [fs]
 repetition_frequency=85*1e6                                 # Pulse repetition frequency [Hz]
 average_power=600*1e-3                                      # Pulse average power [W]
 pulse_energy=average_power/repetition_frequency             # Pulse energy [J]

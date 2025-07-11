@@ -161,6 +161,46 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
     # return results
     return pulseMatrix, spectrumMatrix
 
+def firstTerm(pulse):
+    return pulse
+
+def secondTerm(fiber,sim,z_coordinate,pulse):
+    b = (2 * np.log(2) / sim.duration**2)
+    z_term = ((z_coordinate**sim.alpha) / gamma(sim.alpha + 1))
+    time_term = (pulse * (-fiber.alpha_dB_per_m / 2 + (1j * fiber.beta2 / 2) * (4 * (b** 2) * sim.t**2 - 2 * b)) - 1j * fiber.gammaconstant * (amplitude ** 3) * np.exp(-3 * b * sim.t**2))
+    return z_term * time_term
+
+def thirddTerm(fiber,sim,z_coordinate,pulse):
+    z_term = ((z_coordinate**(2 * sim.alpha)) / gamma(2 * sim.alpha + 1))
+    first_time_term = - fiber.alpha_dB_per_m * secondTerm(fiber,sim,z_coordinate,pulse) / 2
+    second_time_term = (1j * fiber.beta2 / 2) * (2 * np.log(2) / duration**2) * pulse *(fiber.alpha_dB_per_m + 1j * 4 * fiber.beta2 * (2 * np.log(2) / duration**2) + sim.t**2 * (-(2 * np.log(2) / duration**2) - 1j * 4 * fiber.beta2 * ((2 * np.log(2) / duration**2)**2)*7) + 1j * 4 * fiber.beta2 * 2 * (2 * np.log(2) / duration**2)**3 * sim.t**4)
+    third_time_term = -1j * fiber.gammaconstant * 3 * pulse**2 * secondTerm(fiber,sim,z_coordinate,pulse)
+    time_term = first_time_term + second_time_term + third_time_term
+    return z_term * time_term
+
+# Defining the Simulation function
+def Simulation2(fiber:Fiber_config2,sim:SIM_config2,pulse):
+    # Initialize pulseMatrix array to store pulse and spectrum throughout fiber
+    pulseMatrix=np.zeros((fiber.nsteps, sim.number_of_points),dtype=np.complex128)
+
+    # boundary conditions
+    #pulseMatrix[:,0] = 0
+    #pulseMatrix[:,-1] = 0
+    
+    # Initialize spectrumMatrix array to store spectrum throughout fiber
+    spectrumMatrix=np.copy(pulseMatrix)
+
+    # looping through space grid
+    for m in range(fiber.nsteps):
+        z_coordinate = fiber.dz * m
+        pulseMatrix[m,:] = firstTerm(pulse) + secondTerm(fiber,sim,z_coordinate,pulse)
+        spectrumMatrix[m,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m,:])
+        delta = int(round(m*100/fiber.nsteps)) - int(round((m-1)*100/fiber.nsteps))
+        if delta == 1:
+            print(str(int(round(m*100/fiber.nsteps))) + " % ready")
+    # return results
+    return pulseMatrix, spectrumMatrix
+
 def savePlot(fileName):
     if not os.path.isdir('results/'):
         os.makedirs('results/')
