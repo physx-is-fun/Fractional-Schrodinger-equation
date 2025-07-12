@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import gamma
 from scipy.fftpack import fft, ifft, fftshift, ifftshift, fftfreq
+import warnings
+warnings.filterwarnings("error")
 
 # Constants
 pi = np.pi
