@@ -82,6 +82,48 @@ def FW95percentM(X, Y):
     l = np.where(Y > ninetyfivepercent_max, 1, 0)
     return np.sum(l) * deltax
 
+import numpy as np
+
+def analyze_pulse_characteristics(x, I, rat):
+    """
+    Calculates the FWHM or other width-like characteristics of a pulse.
+    
+    Parameters:
+    - x (np.array): time or frequency array
+    - I (np.array): intensity array
+    - rat (float): threshold ratio (e.g., 0.5 for FWHM, 0.05 for 5% bandwidth)
+    - Mult (float): optional multiplier to convert units (default: 1)
+    
+    Prints the pulse width in appropriate units.
+    """
+    max_I = np.max(I)
+    I_thresh = max_I * rat
+
+    # Find indices where intensity is above the threshold
+    indices = np.where(I >= I_thresh)[0]
+
+    if indices.size == 0:
+        width_x = 0
+    else:
+        # Guard against out-of-bounds
+        if indices[0] == 0 or indices[-1] == len(x) - 1:
+            print("Warning: Threshold too close to boundary. Skipping interpolation.")
+            xa1 = x[indices[0]]
+            xa2 = x[indices[-1]]
+        else:
+            # Linear interpolation around threshold crossings
+            x1, x2 = x[indices[0] - 1], x[indices[0]]
+            f1, f2 = I[indices[0] - 1], I[indices[0]]
+            xa1 = ((I_thresh - f1) * x2 + (f2 - I_thresh) * x1) / (f2 - f1)
+
+            x3, x4 = x[indices[-1]], x[indices[-1] + 1]
+            f3, f4 = I[indices[-1]], I[indices[-1] + 1]
+            xa2 = ((I_thresh - f4) * x3 + (f3 - I_thresh) * x4) / (f3 - f4)
+
+        width_x = xa2 - xa1
+
+    return width_x
+
 def SecondTimeDerivative(sim,pulseVector):
     ddy = np.zeros(pulseVector.shape, dtype=np.complex128)
     ddy[1:-1] = pulseVector[2:] -2*pulseVector[1:-1] + pulseVector[:-2] # boundary nodes are not included
@@ -127,6 +169,25 @@ def EFORK3(fiber,sim,zeta,pulseVector):
 
     return pulseVector + w1 * K1 + w2 * K2 + w3 * K3
 
+def IFORK2(fiber,sim,zeta,pulseVector):
+    alpha = sim.alpha
+    dz = fiber.dz
+    # Precompute constants
+    g1 = gamma(1+alpha)
+    g2 = gamma(1+2*alpha)
+    g3 = gamma(1+3*alpha)
+    w1 = 1 / g1 - g3 / (2*g2**2)
+    w2 = g3 / (2*g2**2)
+    a21 = g2 / g3
+    a22 = g2 / g3
+    c21 = (1/g3**2*(2*g1*g2*g3-np.sqrt(2)*np.sqrt(g2**2*(-2*g1**2+g2)*g3**2)))**(1/alpha)
+    c22 = (1/g3**2*(2*g1*g2*g3+np.sqrt(2)*np.sqrt(g2**2*(-2*g1**2+g2)*g3**2)))**(1/alpha)
+    
+    k1 = dz**alpha * RightHandSide(fiber, sim, zeta, pulseVector)
+    k2 = (1/2) * dz**alpha * ((RightHandSide(fiber, sim, zeta + c21 * dz, pulseVector + a21 * k1) + RightHandSide(fiber, sim, zeta + c22 * dz, pulseVector + a22 * k1))/(1 + dz**alpha * a22))
+
+    return pulseVector + w1*k1 + w2*k2
+
 # Defining the Simulation function
 def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
     # Initialize pulseMatrix array to store pulse and spectrum throughout fiber
@@ -152,49 +213,11 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
             pulseMatrix[m+1,:] = RK4(fiber,sim,zeta,pulseMatrix[m,:])
         elif method == 'EFORK3' :
             pulseMatrix[m+1,:] = EFORK3(fiber,sim,zeta,pulseMatrix[m,:])
+        elif method == 'IFORK2' :
+            pulseMatrix[m+1,:] = IFORK2(fiber,sim,zeta,pulseMatrix[m,:])
         else :
             raise Exception(f'Unknown method {method}')
         spectrumMatrix[m+1,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m+1,:])
-        delta = int(round(m*100/fiber.nsteps)) - int(round((m-1)*100/fiber.nsteps))
-        if delta == 1:
-            print(str(int(round(m*100/fiber.nsteps))) + " % ready")
-    # return results
-    return pulseMatrix, spectrumMatrix
-
-def firstTerm(pulse):
-    return pulse
-
-def secondTerm(fiber,sim,z_coordinate,pulse):
-    b = (2 * np.log(2) / sim.duration**2)
-    z_term = ((z_coordinate**sim.alpha) / gamma(sim.alpha + 1))
-    time_term = (pulse * (-fiber.alpha_dB_per_m / 2 + (1j * fiber.beta2 / 2) * (4 * (b** 2) * sim.t**2 - 2 * b)) - 1j * fiber.gammaconstant * (amplitude ** 3) * np.exp(-3 * b * sim.t**2))
-    return z_term * time_term
-
-def thirddTerm(fiber,sim,z_coordinate,pulse):
-    z_term = ((z_coordinate**(2 * sim.alpha)) / gamma(2 * sim.alpha + 1))
-    first_time_term = - fiber.alpha_dB_per_m * secondTerm(fiber,sim,z_coordinate,pulse) / 2
-    second_time_term = (1j * fiber.beta2 / 2) * (2 * np.log(2) / duration**2) * pulse *(fiber.alpha_dB_per_m + 1j * 4 * fiber.beta2 * (2 * np.log(2) / duration**2) + sim.t**2 * (-(2 * np.log(2) / duration**2) - 1j * 4 * fiber.beta2 * ((2 * np.log(2) / duration**2)**2)*7) + 1j * 4 * fiber.beta2 * 2 * (2 * np.log(2) / duration**2)**3 * sim.t**4)
-    third_time_term = -1j * fiber.gammaconstant * 3 * pulse**2 * secondTerm(fiber,sim,z_coordinate,pulse)
-    time_term = first_time_term + second_time_term + third_time_term
-    return z_term * time_term
-
-# Defining the Simulation function
-def Simulation2(fiber:Fiber_config2,sim:SIM_config2,pulse):
-    # Initialize pulseMatrix array to store pulse and spectrum throughout fiber
-    pulseMatrix=np.zeros((fiber.nsteps, sim.number_of_points),dtype=np.complex128)
-
-    # boundary conditions
-    #pulseMatrix[:,0] = 0
-    #pulseMatrix[:,-1] = 0
-    
-    # Initialize spectrumMatrix array to store spectrum throughout fiber
-    spectrumMatrix=np.copy(pulseMatrix)
-
-    # looping through space grid
-    for m in range(fiber.nsteps):
-        z_coordinate = fiber.dz * m
-        pulseMatrix[m,:] = firstTerm(pulse) + secondTerm(fiber,sim,z_coordinate,pulse)
-        spectrumMatrix[m,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m,:])
         delta = int(round(m*100/fiber.nsteps)) - int(round((m-1)*100/fiber.nsteps))
         if delta == 1:
             print(str(int(round(m*100/fiber.nsteps))) + " % ready")

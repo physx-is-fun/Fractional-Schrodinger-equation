@@ -36,35 +36,4 @@ class Fiber_config:
         self.zlocs_array = zlocs_array / length                                    # Dimensionless spatial grid                                   
         self.nonlinear_length = nonlinear_length
         self.dispersion_length = dispersion_length
-        self.alpha_dB_per_m = alpha_dB_per_m
-
-class SIM_config2:
-    def __init__(self,N,time_window,duration,wavelength0,alpha):
-        self.alpha = alpha
-        self.number_of_points=N
-        self.wavelength0 = wavelength0                                             # Central wavelength
-        self.duration = duration                                                          # Dimensonless duration
-        #dt = time_window / N                             
-        t = np.linspace(0,time_window,N)                                                                                  
-        t = t - np.mean(t)
-        dt = abs(t[1] - t[0])
-        self.t = t
-        self.time_step = dt
-        f = fftshift(fftfreq(N,d=dt))                                                                               
-        frequency0 = speed_of_light / wavelength0                                  # Central frequency
-        self.f = f                                                                        
-        self.frequency0 = frequency0                                               
-        f_rel = f + frequency0                                                                                      
-        self.f_rel = f_rel
-
-class Fiber_config2:
-    def __init__(self,nsteps,length,alpha_dB_per_m,beta2,gammaconstant):
-        self.nsteps=nsteps
-        self.length = length
-        dz = length / nsteps                                                       
-        self.dz = dz
-        zlocs_array=np.linspace(0,length,nsteps)                                   
-        self.zlocs_array = zlocs_array
-        self.alpha_dB_per_m = alpha_dB_per_m
-        self.beta2 = beta2
-        self.gammaconstant = gammaconstant                                                          
+        self.alpha_dB_per_m = alpha_dB_per_m                                                        
