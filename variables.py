@@ -31,7 +31,7 @@ effective_mode_area=(pi/4)*effective_mode_diameter**2                           
 nonlinear_refractive_index=2.7*1e-20                                               # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
 gammaconstant=(2*pi*nonlinear_refractive_index)/(wavelength0*effective_mode_area)  # Nonlinear parameter [1/(W*m)]
 beta2=36.16                                                                        # GVD in fs^2/mm (units typically used when referring to beta2) of fused silica @ 800nm from https://www.newport.com/n/the-effect-of-dispersion-on-ultrashort-pulses
-beta2*=(1e-27)                                                                     # Convert GVD to s^2/m so everything is in SI units of fused silica @ 800nm
+beta2*=(1e-30)                                                                     # Convert GVD to s^2/m so everything is in SI units of fused silica @ 800nm
 alpha_dB_per_m=0.2*1e-3                                                            # Power attenuation coeff in decibel per m. Usual value @ 1550 nm is 0.2 dB/km 
 
 # Some useful parameters
@@ -53,11 +53,11 @@ duration=8                                                  # Pulse duration in 
 repetition_frequency=85*1e6                                 # Pulse repetition frequency [Hz]
 average_power=600*1e-3                                      # Pulse average power [W]
 pulse_energy=average_power/repetition_frequency             # Pulse energy [J]
-peak_power=pulse_energy/duration                            # Pulse peak power [W]
+peak_power=pulse_energy/(duration*1e-15)                            # Pulse peak power [W]
 amplitude = np.sqrt(peak_power)                             # Electrical field strength amplitude in units of sqrt(W)
 N= 2**11 #2**10                                             # Number of points                                                    
 #dt = 0.01                                                  # Time resolution [fs]
-Time_window=3000                                            # Time window [fs]
+Time_window=2000                                            # Time window [fs]
 theta = 1.0                                                 # Order of the fractional derivative
 chirp = 10                                                   # Chirp parameter
 
@@ -70,7 +70,7 @@ nonlinear_refractive_index=2.7*1e-20                                            
 gammaconstant=(2*pi*nonlinear_refractive_index)/((wavelength0*1e-9)*effective_mode_area)    # Nonlinear parameter [1/(W*m)]
 gammaconstant *= 1e3                                                                        # Nonlinear parameter [1/(W*km)]
 beta2=36.16                                                                                 # GVD in fs^2/mm (units typically used when referring to beta2) of fused silica @ 800nm from https://www.newport.com/n/the-effect-of-dispersion-on-ultrashort-pulses
-beta2 *= 1e6                                                                                # GVD in fs^2/km 
+beta2 *= 1e3                                                                                # GVD in fs^2/km 
 alpha_dB_per_km=0.2                                                                          # Power attenuation coeff in deciBel per mm. Usual value @ 1550 nm is 0.2 dB/km
 # NOTE: beta2>0 is normal dispersion with red light pulling ahead, causing a negative leading chirp
 # NOTE: beta2<0 is anomalous dispersion with blue light pulling ahead, causing a positive leading chirp

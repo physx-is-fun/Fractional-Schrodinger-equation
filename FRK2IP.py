@@ -22,7 +22,7 @@ mode_area = (pi / 4) * mode_diameter**2 # [m^2]
 n2 = 2.7e-20  # [m^2/W]
 gamma_nl = (2 * pi * n2) / ((wavelength0) * mode_area) # [1/W/m]
 beta2=36.16                                                                       
-beta2*=(1e-27)
+beta2*=(1e-30)
 alpha_dB_per_m = 0.2 * 1e-3
 alpha_linear = alpha_dB_per_m / (10 / np.log10(np.e))  # Convert dB to Neper
 
