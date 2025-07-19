@@ -20,23 +20,22 @@ amplitude = np.sqrt(peak_power)  # sqrt(W)
 mode_diameter = 5e-6  # [m]
 mode_area = (pi / 4) * mode_diameter**2 # [m^2]
 n2 = 2.7e-20  # [m^2/W]
-gamma_nl = (2 * pi * n2) / ((wavelength0) * mode_area) # [1/W/m]
+gammaconstant = (2 * pi * n2) / ((wavelength0) * mode_area) # [1/W/m]
 beta2=36.16                                                                       
-beta2*=(1e-27)
+beta2*=(1e-30)
 alpha_dB_per_m = 0.2 * 1e-3
-alpha_linear = alpha_dB_per_m / (10 / np.log10(np.e))  # Convert dB to Neper
 
 # Order of derivative
-mu = 1.0 # you may set between [0.8,1.0]
+mu = 1.0 
 
 # Spatial grid
-z_max = 1e-3 # you may set between [1e-6,1e-4] meters
-Nz = 2**15 # do not touch  
+z_max = 1e-4 
+Nz = 2**10  
 dz = z_max / Nz
 
 # Time domain
-Nt = 2**13 # do not touch
-T = 1000e-15 # do not touch
+Nt = 2**10 
+T = 100e-15 
 t = np.linspace(-T / 2, T / 2, Nt)
 dt = t[1] - t[0]
 
@@ -78,8 +77,8 @@ def from_interaction_picture(psi):
 # === RHS in Interaction Picture ===
 def RHS_IP(psi):
     A_phys = from_interaction_picture(psi)
-    nonlinear_term = -1j * gamma_nl * np.abs(A_phys)**2 * A_phys
-    loss_term = - (alpha_linear / 2) * A_phys
+    nonlinear_term = -1j * gammaconstant * np.abs(A_phys)**2 * A_phys
+    loss_term = - (alpha_dB_per_m / 2) * A_phys
     return to_interaction_picture(nonlinear_term + loss_term)
 
 # === FORK3 Implementation ===
@@ -123,9 +122,9 @@ def plotFirstAndLastPulse():
     plt.axis([-5*duration,5*duration,0,1])
     plt.plot(t, getPower(A0) / np.max(getPower(A0)), label='Initial |A(0, t)|^2', linestyle='--')
     plt.plot(t, getPower(pulseMatrix[-1,:]) / np.max(getPower(A0)), label='Final |A(z, t)|^2', color='darkred')
-    plt.xlabel('Time (fs)')
+    plt.xlabel('Time (s)')
     plt.ylabel('Intensity (a.u.)')
-    plt.title('Pulse Evolution with Fractional Implicit RK2')
+    plt.title('Pulse Evolution with Fractional Explicit RK3')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -136,9 +135,9 @@ def plotFirstAndLastSpectrum():
     plt.axis([-5e15,5e15,0,1])
     plt.plot(omega, getPower(A0_w) / np.max(getPower(A0_w)), label='Initial |A(0, w)|^2', linestyle='--')
     plt.plot(omega, getPower(spectrumMatrix[-1,:]) / np.max(getPower(A0_w)), label='Final |A(z, w)|^2', color='darkred')
-    plt.xlabel('Frequency (PHz)')
+    plt.xlabel('Frequency (Hz)')
     plt.ylabel('Spectral Intensity (a.u.)')
-    plt.title('Spectrum Evolution with Fractional Implicit RK2')
+    plt.title('Spectrum Evolution with Fractional Explicit RK3')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()

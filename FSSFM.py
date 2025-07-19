@@ -26,11 +26,11 @@ beta2*=(1e-30)
 alpha_dB_per_m = 0.2 * 1e-3
 
 # Fractional order
-mu = 1                   
+mu = 0.9                   
 
 # Spatial grid
-z_max = 0.2e-2           
-Nz = 2**7                  
+z_max = 1e-3           
+Nz = 2**10                  
 dz = z_max / Nz
 
 # Time grid
@@ -69,7 +69,6 @@ A0 = GaussianPulseTime(t,amplitude,duration)
 dispersion_operator = np.exp(-1j * (beta2 / 2) * omega**2 * dz / 2)
 
 # Initialize
-A_z = A0.copy()
 A0_spectrum = getSpectrumFromPulse(A0.copy())
 A_history = [A0.copy()]
 A_spectrum_history = [A0_spectrum]

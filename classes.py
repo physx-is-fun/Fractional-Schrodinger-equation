@@ -11,8 +11,7 @@ class SIM_config:
         self.alpha = alpha
         self.number_of_points=N
         self.wavelength0 = wavelength0                                             # Central wavelength
-        self.duration = 1                                                          # Dimensonless duration
-        #dt = time_window / N                             
+        self.duration = 1                                                          # Dimensonless duration                            
         t = np.linspace(0,time_window,N)                                                                                  
         t = t - np.mean(t)
         dt = abs(t[1] - t[0])
@@ -36,4 +35,29 @@ class Fiber_config:
         self.zlocs_array = zlocs_array / length                                    # Dimensionless spatial grid                                   
         self.nonlinear_length = nonlinear_length
         self.dispersion_length = dispersion_length
-        self.alpha_dB_per_m = alpha_dB_per_m                                                        
+        self.alpha_dB_per_m = alpha_dB_per_m
+
+class SIM_config2:
+    def __init__(self,N,time_window,duration,wavelength0,alpha,chirp):
+        self.chirp = chirp
+        self.alpha = alpha
+        self.number_of_points=N
+        self.wavelength0 = wavelength0                                            
+        self.duration = duration                                                              
+        self.t = np.linspace(-time_window/2,time_window/2,N)                                                                                  
+        self.dt = abs(self.t[1] - self.t[0])                                   
+        self.f = fftshift(fftfreq(N,d=self.dt))
+        self.omega = self.f * 2 *pi                                                                                                                                                                                                                            
+
+# Class for holding info about the fiber
+class Fiber_config2:
+    def __init__(self,nsteps,length,nonlinear_length,dispersion_length,alpha_dB_per_m,beta2,gammaconstant):
+        self.nsteps=nsteps
+        self.length = length
+        self.dz = length / nsteps                                                                                                         
+        self.zlocs_array=np.linspace(0,length,nsteps)                                                                                                 
+        self.nonlinear_length = nonlinear_length
+        self.dispersion_length = dispersion_length
+        self.alpha_dB_per_m = alpha_dB_per_m
+        self.beta2 = beta2
+        self.gammaconstant = gammaconstant                                                            

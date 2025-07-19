@@ -25,6 +25,74 @@ def wavelet(t,duration_s,frequency_Hz):
 def getPower(amplitude):
     return np.abs(amplitude) ** 2
 
+"""
+def getIntensity(amplitude):
+    return (1/2)*n0*epsilon_0*speed_of_light*np.abs(amplitude)**2
+"""
+    
+def getPhotonNumber(A, sim:SIM_config2):
+    """
+    Calculate photon number using:
+        N = ∭ |A(t)|^2 / (ħω) dt
+    """
+    I = getPower(A)
+    
+    photon_energy = hbar * (sim.omega + 2*pi*speed_of_light/wavelength0)
+
+    I_over_hw = I / photon_energy 
+
+    photon_number = np.trapz(I_over_hw, sim.t) 
+
+    return photon_number
+
+def estimate_stable_dz(gamma, P0, lambda0, n0, beta2=None, omega_max=None, C_nl=0.1, C_phi=0.1):
+    """
+    Estimate physically stable step size Δz for SSFM in NLSE.
+
+    Parameters:
+        gamma     : Nonlinear coefficient [1/(W·m)]
+        P0        : Peak power [W]
+        lambda0   : Central wavelength [m]
+        n0        : Linear refractive index
+        beta2     : (Optional) GVD coefficient [s^2/m]
+        omega_max : (Optional) max angular frequency content [rad/s]
+        C_nl      : Safety factor for nonlinear phase shift
+        C_phi     : Safety factor for spatial phase shift
+
+    Returns:
+        dz_suggested : Estimated stable step size [m]
+    """
+    dz_nl = C_nl / (gamma * P0)
+    dz_phi = C_phi * lambda0 / (2 * np.pi * n0)
+
+    if beta2 is not None and omega_max is not None:
+        dz_disp = 1 / (np.abs(beta2) * omega_max**2)
+        return min(dz_nl, dz_phi, dz_disp)
+
+    return min(dz_nl, dz_phi)
+
+def estimate_grid_resolution(tau0, omega_max=None):
+    """
+    Estimate temporal and spatial grid resolutions.
+
+    Parameters:
+        tau0      : Pulse duration (e.g., FWHM) [s]
+        omega_max : Maximum angular frequency content (optional) [rad/s]
+
+    Returns:
+        dt_est    : Temporal grid spacing [s]
+    """
+
+    # Temporal resolution based on pulse duration
+    dt_est = tau0 / 10
+
+    # If max spectral content is known, enforce Nyquist
+    if omega_max is not None:
+        dt_nyquist = np.pi / omega_max
+        dt_est = min(dt_est, dt_nyquist)
+
+    return dt_est
+
 # Function gets the energy of a pulse or spectrum by integrating the power
 def getEnergy(time_or_frequency,amplitude):
     return np.trapz(getPower(amplitude),time_or_frequency)
@@ -40,7 +108,7 @@ def GaussianPulseFrequency(frequency,frequency0,amplitude,duration):
     return 2*amplitude*duration*np.sqrt(pi/(8*np.log(2)))*np.exp(-((duration**2)/(8*np.log(2)))*(2*pi*frequency - 2*pi*frequency0)**2)*(1+0j)
 
 # Getting the spectrum based on a given pulse
-def getSpectrumFromPulse(time,frequency,pulse_amplitude):
+def getSpectrumFromPulse(time,pulse_amplitude):
     #pulseEenergy=getEnergy(time,pulse_amplitude) # Get pulse energy
     dt=time[1]-time[0]
     spectrum_amplitude=fftshift(fft(pulse_amplitude))*dt # Take FFT and do shift
@@ -49,7 +117,7 @@ def getSpectrumFromPulse(time,frequency,pulse_amplitude):
     #assert( err<1e-7 ), f'ERROR = {err}: Energy changed when going from Pulse to Spectrum!!!'
     return spectrum_amplitude
 
-def getPulseFromSpectrum(time,frequency,spectrum_aplitude):
+def getPulseFromSpectrum(time,spectrum_aplitude):
     #spectrumEnergy=getEnergy(frequency,spectrum_aplitude)
     dt=time[1]-time[0]
     pulse=ifft(ifftshift(spectrum_aplitude))/dt
@@ -132,7 +200,7 @@ def SecondTimeDerivative(sim,pulseVector):
     return ddy / (sim.time_step ** 2) 
 
 def GVD_term(fiber,sim,pulseVector):
-    return 1j * (fiber.length / fiber.dispersion_length) * (1 / 2) * SecondTimeDerivative(sim,pulseVector)
+    return 1j * (fiber.length / fiber.dispersion_length) * SecondTimeDerivative(sim,pulseVector)
 
 def SPM_term(fiber,zeta,pulseVector):
     return - 1j * (fiber.length / fiber.nonlinear_length) * np.exp(-fiber.alpha_dB_per_m * fiber.length * zeta) * getPower(pulseVector) * pulseVector
@@ -223,6 +291,63 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
             print(str(int(round(m*100/fiber.nsteps))) + " % ready")
     # return results
     return pulseMatrix, spectrumMatrix
+
+# SSFM step for computing F_k
+def ssfm_step(A,sim,fiber):
+    dispersion_step = np.exp(1j * (fiber.beta2 / 2) * sim.omega**2 * fiber.dz)
+    loss_step = np.exp(-(fiber.alpha_dB_per_m / 2) * fiber.dz)
+    nonlineairity_half_step = np.exp(1j * fiber.gammaconstant * np.abs(A)**2 * fiber.dz / 2)
+    A *= nonlineairity_half_step
+    A_fft = fftshift(fft(ifftshift(A)))
+    A_fft *= dispersion_step * loss_step
+    A = fftshift(ifft(ifftshift(A_fft)))
+    A *= nonlineairity_half_step
+    return A
+
+def FSSFM(fiber:Fiber_config2,sim:SIM_config2,pulse):
+    # Precompute constant
+    factor = fiber.dz**sim.alpha / gamma(sim.alpha)
+    # Initialize
+    A0 = pulse
+    A0_spectrum = getSpectrumFromPulse(sim.t,A0.copy())
+    A_history = [A0.copy()]
+    A_spectrum_history = [A0_spectrum]
+    A0_PhotonNumber = getPhotonNumber(A0.copy(),sim)
+    PhotonNumber_values = [A0_PhotonNumber]
+    SSFM_A_history = [A0.copy()]
+    #SSFM_A_spectrum_history = [A0_spectrum]
+    F_history = []
+    # Main loop: full fractional Euler with memory
+    for n in range(fiber.nsteps-1):
+        A_n = A_history[n]
+        
+        # Compute F_n via SSFM
+        F_n = ssfm_step(A_n,sim,fiber)
+        F_history.append(F_n)
+
+        #SSFM_A = SSFM_A_history[n]
+        #SSFM_A = ssfm_step(SSFM_A,sim,fiber)
+        #SSFM_A_history.append(SSFM_A)
+        #PhotonNumber_values.append(getPhotonNumber(SSFM_A,sim))
+        #SSFM_A_spectrum = getSpectrumFromPulse(sim.t,SSFM_A)
+        #SSFM_A_spectrum_history.append(SSFM_A_spectrum)
+
+        # Accumulate memory sum
+        mem_sum = np.zeros_like(A0, dtype=np.complex128)
+        for k in range(n + 1):
+            weight = (n + 1 - k)**(sim.alpha - 1)
+            mem_sum += weight * F_history[k]
+
+        A_next = F_n - factor * mem_sum
+        A_history.append(A_next)
+        PhotonNumber_values.append(getPhotonNumber(A_next,sim))
+        A_next_spectrum = getSpectrumFromPulse(sim.t,A_next)
+        A_spectrum_history.append(A_next_spectrum)
+
+        delta = int(round(n * 100 / fiber.nsteps)) - int(round((n - 1) * 100 / fiber.nsteps))
+        if delta == 1:
+            print(f"{int(round(n * 100 / fiber.nsteps))} % ready")
+    return A_history, A_spectrum_history, PhotonNumber_values
 
 def savePlot(fileName):
     if not os.path.isdir('results/'):

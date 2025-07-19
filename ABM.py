@@ -7,40 +7,38 @@ warnings.filterwarnings("error")
 
 # === Parameters ===
 pi = np.pi
-speed_of_light = 300  # [nm/fs]
+speed_of_light = 3e8  # [m/s]
+wavelength0 = 800e-9  # [m]
+frequency0 = speed_of_light / wavelength0  # [Hz]
+duration = 8e-15  # [s]
+rep_rate = 85e6  # [Hz]
+avg_power = 600e-3  # [W]
+pulse_energy = avg_power / rep_rate # [J]
+peak_power = pulse_energy / (duration) # [W]
+amplitude = np.sqrt(peak_power)  # sqrt(W)
 
-# Parameters
-wavelength0 = 800  # [nm]
-frequency0 = speed_of_light / wavelength0
-duration = 8  # [fs]
-repetition_frequency = 85e6  # [Hz]
-average_power = 600e-3  # [W]
-pulse_energy = average_power / repetition_frequency
-peak_power = pulse_energy / (duration * 1e-15)
-amplitude = np.sqrt(peak_power)
-
-effective_mode_diameter = 5e-6
-effective_mode_area = (pi / 4) * effective_mode_diameter**2
-nonlinear_refractive_index = 2.7e-20  # [m^2/W]
-gammaconstant = (2 * pi * nonlinear_refractive_index) / ((wavelength0*1e-9) * effective_mode_area)
-gammaconstant *= 1e3  # [1/(W*km)]
-beta2 = 36.16e3  # [fs^2/km]
-alpha_dB_per_km = 0.2  # [dB/km]
+mode_diameter = 5e-6  # [m]
+mode_area = (pi / 4) * mode_diameter**2 # [m^2]
+n2 = 2.7e-20  # [m^2/W]
+gammaconstant = (2 * pi * n2) / ((wavelength0) * mode_area) # [1/W/m]
+beta2=36.16                                                                       
+beta2*=(1e-30)
+alpha_dB_per_m = 0.2 * 1e-3
 
 nonlinear_length=1/(gammaconstant*peak_power)
 dispersion_length=(duration**2)/(np.abs(beta2))
 
 # Fractional order
-mu = 0.95                      
+mu = 1                      
 
 # Spatial grid
-z_max = 1e-6 # [km]                  
-Nz = 2**10                     
+z_max = 1e-1                  
+Nz = 2**15                     
 dz = z_max / Nz 
 
 # Time grid
 Nt = 2**10                    
-T = 100 # [fs]                       
+T = 200e-15                       
 t = np.linspace(-T/2, T/2, Nt)
 dt = t[1] - t[0]
 
