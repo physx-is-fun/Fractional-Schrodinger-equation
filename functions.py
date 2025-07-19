@@ -341,11 +341,11 @@ def FSSFM(fiber:Fiber_config2,sim:SIM_config2,pulse):
         memory = np.zeros_like(A0, dtype=complex)
         for j in range(n+1):
             w = L1_weights[n+1-j]
-            mem += w * F_history[j]
+            memory += w * F_history[j]
         
-        A_next = F_n + fiber.dz**sim.alpha * memory
+        A_next = F_n - fiber.dz**sim.alpha * memory
         A_history.append(A_next)
-        
+
         PhotonNumber_values.append(getPhotonNumber(A_next,sim))
         A_next_spectrum = getSpectrumFromPulse(sim.t,A_next)
         A_spectrum_history.append(A_next_spectrum)

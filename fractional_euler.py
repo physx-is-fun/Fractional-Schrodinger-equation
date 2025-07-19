@@ -111,12 +111,12 @@ def FSSFM_L1():
         SSFM_A_spectrum_history.append(SSFM_A_spectrum)
 
         # Update with L1 scheme
-        mem = np.zeros_like(A0, dtype=complex)
+        memory = np.zeros_like(A0, dtype=complex)
         for j in range(n+1):
             w = L1_weights[n+1-j]
-            mem += w * F_history[j]
+            memory += w * F_history[j]
         
-        A_next = F_n + dz**mu * mem
+        A_next = F_n - dz**mu * memory
 
         # Save results
         A_history.append(A_next)
