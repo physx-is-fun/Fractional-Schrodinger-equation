@@ -150,8 +150,6 @@ def FW95percentM(X, Y):
     l = np.where(Y > ninetyfivepercent_max, 1, 0)
     return np.sum(l) * deltax
 
-import numpy as np
-
 def analyze_pulse_characteristics(x, I, rat):
     """
     Calculates the FWHM or other width-like characteristics of a pulse.
@@ -304,9 +302,16 @@ def ssfm_step(A,sim,fiber):
     A *= nonlineairity_half_step
     return A
 
+def compute_L1_weights(mu, N):
+    b = np.zeros(N+1)
+    b[0] = 1.0
+    for k in range(1, N+1):
+        b[k] = (k+1)**mu - k**mu
+    return b / gamma(1 + mu)
+
 def FSSFM(fiber:Fiber_config2,sim:SIM_config2,pulse):
-    # Precompute constant
-    factor = fiber.dz**sim.alpha / gamma(sim.alpha)
+    # Precompute once before propagation:
+    L1_weights = compute_L1_weights(sim.alpha, fiber.nsteps)
     # Initialize
     A0 = pulse
     A0_spectrum = getSpectrumFromPulse(sim.t,A0.copy())
@@ -332,14 +337,15 @@ def FSSFM(fiber:Fiber_config2,sim:SIM_config2,pulse):
         #SSFM_A_spectrum = getSpectrumFromPulse(sim.t,SSFM_A)
         #SSFM_A_spectrum_history.append(SSFM_A_spectrum)
 
-        # Accumulate memory sum
-        mem_sum = np.zeros_like(A0, dtype=np.complex128)
-        for k in range(n + 1):
-            weight = (n + 1 - k)**(sim.alpha - 1)
-            mem_sum += weight * F_history[k]
-
-        A_next = F_n - factor * mem_sum
+        # Update with L1 scheme
+        memory = np.zeros_like(A0, dtype=complex)
+        for j in range(n+1):
+            w = L1_weights[n+1-j]
+            mem += w * F_history[j]
+        
+        A_next = F_n + fiber.dz**sim.alpha * memory
         A_history.append(A_next)
+        
         PhotonNumber_values.append(getPhotonNumber(A_next,sim))
         A_next_spectrum = getSpectrumFromPulse(sim.t,A_next)
         A_spectrum_history.append(A_next_spectrum)
