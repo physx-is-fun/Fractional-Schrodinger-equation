@@ -355,6 +355,59 @@ def FSSFM(fiber:Fiber_config2,sim:SIM_config2,pulse):
             print(f"{int(round(n * 100 / fiber.nsteps))} % ready")
     return A_history, A_spectrum_history, PhotonNumber_values
 
+# === Transform Utilities ===
+def to_interaction_picture(A,sim,fiber):
+    Lw = 1j * (beta2 / 2) * sim.omega**2
+    exp_halfL = np.exp(Lw * fiber.dz / 2)
+    return fftshift(ifft(ifftshift(fftshift(fft(ifftshift(A))) * exp_halfL)))
+
+def from_interaction_picture(psi,sim,fiber):
+    Lw = 1j * (fiber.beta2 / 2) * sim.omega**2
+    exp_halfL = np.exp(Lw * fiber.dz / 2)
+    return fftshift(ifft(ifftshift(fftshift(fft(ifftshift(psi))) * exp_halfL)))
+
+# === RHS in Interaction Picture ===
+def RHS_IP(psi,sim,fiber):
+    A_phys = from_interaction_picture(psi,sim,fiber)
+    nonlinear_term = -1j * fiber.gammaconstant * np.abs(A_phys)**2 * A_phys
+    loss_term = - (fiber.alpha_dB_per_m / 2) * A_phys
+    return to_interaction_picture(nonlinear_term + loss_term,sim,fiber)
+
+def compute_L1_weights(mu, N):
+    weights = np.zeros(N)
+    for k in range(N):
+        weights[k] = (k + 1)**mu - k**mu
+    return weights
+
+def FL1IP(fiber:Fiber_config,sim:SIM_config,pulse):
+    A_history = [pulse]
+    A0_spectrum = getSpectrumFromPulse(sim.t,pulse)
+    A_spectrum_history = [A0_spectrum]
+    psi_0 = to_interaction_picture(pulse,sim,fiber)
+    F_list = [RHS_IP(psi_0,sim,fiber)]
+    psi_list = [psi_0]
+    A0_PhotonNumber = getPhotonNumber(pulse,sim)
+    PhotonNumber_values = [A0_PhotonNumber]
+    weights = compute_L1_weights(sim.alpha, fiber.nsteps)
+    prefactor = fiber.dz**sim.alpha / gamma(sim.alpha + 1)
+    for n in range(fiber.nsteps-1):
+        mem_sum = np.zeros_like(pulse, dtype=np.complex128)
+        for k in range(n):
+            mem_sum += weights[n - 1 - k] * F_list[k]
+        psi_next = psi_list[0] + prefactor * mem_sum
+        psi_list.append(psi_next)
+        F_next = RHS_IP(psi_next,sim,fiber)
+        A_next = from_interaction_picture(psi_next,sim,fiber)
+        PhotonNumber_values.append(getPhotonNumber(A_next,sim))
+        F_list.append(F_next)
+        A_history.append(A_next)
+        A_spectrum_next = getSpectrumFromPulse(sim.t,A_next)
+        A_spectrum_history.append(A_spectrum_next)
+        delta = int(round(n*100/fiber.nsteps)) - int(round((n-1)*100/fiber.nsteps))
+        if delta == 1:
+            print(str(int(round(n*100/fiber.nsteps))) + " % ready")
+    return A_history, A_spectrum_history, PhotonNumber_values
+
 def savePlot(fileName):
     if not os.path.isdir('results/'):
         os.makedirs('results/')
