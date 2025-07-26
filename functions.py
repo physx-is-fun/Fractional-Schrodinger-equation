@@ -405,7 +405,8 @@ def FL1IP(fiber:Fiber_config,sim:SIM_config,pulse):
         A_spectrum_history.append(A_spectrum_next)
         delta = int(round(n*100/fiber.nsteps)) - int(round((n-1)*100/fiber.nsteps))
         if delta == 1:
-            print(str(int(round(n*100/fiber.nsteps))) + " % ready")
+            #print(str(int(round(n*100/fiber.nsteps))) + " % ready")
+            print(sim.alpha)
     return A_history, A_spectrum_history, PhotonNumber_values
 
 def savePlot(fileName):
