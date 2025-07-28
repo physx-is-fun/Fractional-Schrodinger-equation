@@ -47,6 +47,7 @@ class SIM_config2:
         self.t = np.linspace(-time_window/2,time_window/2,N)                                                                                  
         self.dt = abs(self.t[1] - self.t[0])                                   
         self.f = fftshift(fftfreq(N,d=self.dt))
+        self.f0 = speed_of_light / wavelength0
         self.omega = self.f * 2 *pi                                                                                                                                                                                                                            
 
 # Class for holding info about the fiber

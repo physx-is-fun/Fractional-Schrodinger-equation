@@ -13,11 +13,12 @@ n0 = 1.0                                                 # Refractive index of a
 # Initialize Gaussian pulse parameters (OCTAVIUS-85M-HP from THORLABS) https://www.thorlabs.com/thorproduct.cfm?partnumber=OCTAVIUS-85M-HP
 wavelength0=800*1e-9                                        # Pulse central wavelengt [m]
 frequency0=speed_of_light/wavelength0                       # Pulse central frequency [Hz] 0.375*1e15 Hz = 0.375 PHz which equals to 800 nm
-duration=8*1e-15                                            # Pulse duration in FWHM [s]
+duration_FWHM=8*1e-15                                            # Pulse duration in FWHM [s]
+duration=duration_FWHM / (2 * np.sqrt(np.log(2)))
 repetition_frequency=85*1e6                                 # Pulse repetition frequency [Hz]
 average_power=600*1e-3                                      # Pulse average power [W]
 pulse_energy=average_power/repetition_frequency             # Pulse energy [J]
-peak_power=pulse_energy/duration                            # Pulse peak power [W]
+peak_power=pulse_energy/duration_FWHM                            # Pulse peak power [W]
 amplitude=np.sqrt(peak_power)                               # Electrical field strength amplitude in units of sqrt(W)
 #amplitude = np.sqrt((2 * pulse_energy) / (duration * np.sqrt(np.pi / np.log(2))))
 N=2**10 #2**10                                              # Number of points                                                    
@@ -27,8 +28,8 @@ chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-4 #1e-3                                                                  # Fiber length [m]
-nsteps=2**10 #2**10                                                                # Number of steps we divide the fiber into
-effective_mode_diameter=5e-6                                                       # Effective mode diameter [um] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
+nsteps=2**11 #2**10                                                                # Number of steps we divide the fiber into
+effective_mode_diameter=5e-6                                                       # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 peak_intensity = peak_power / effective_mode_area
 nonlinear_refractive_index=2.7*1e-20                                               # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
