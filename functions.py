@@ -390,11 +390,11 @@ def FL1IP(fiber:Fiber_config,sim:SIM_config,pulse):
     PhotonNumber_values = [A0_PhotonNumber]
     weights = compute_L1_weights(sim.alpha, fiber.nsteps)
     prefactor = fiber.dz**sim.alpha / gamma(sim.alpha + 1)
-    for n in range(fiber.nsteps-1):
+    for n in range(1,fiber.nsteps):
         mem_sum = np.zeros_like(pulse, dtype=np.complex128)
         for k in range(n):
             mem_sum += weights[n - 1 - k] * F_list[k]
-        psi_next = psi_list[0] + prefactor * mem_sum
+        psi_next = psi_list[0] - prefactor * mem_sum
         psi_list.append(psi_next)
         F_next = RHS_IP(psi_next,sim,fiber)
         A_next = from_interaction_picture(psi_next,sim,fiber)
@@ -416,10 +416,17 @@ def FL1_direct_NL(fiber:Fiber_config,sim:SIM_config,pulse):
     A_spectrum_history = [A0_spectrum]
     A0_PhotonNumber = getPhotonNumber(pulse,sim)
     PhotonNumber_values = [A0_PhotonNumber]
+    SSFM_A_history = [pulse.copy()]
+    SSFM_A_spectrum_history = [A0_spectrum]
     dz_alpha = fiber.dz**sim.alpha / gamma(sim.alpha + 1)
     weights = compute_L1_weights(sim.alpha, fiber.nsteps)
     F_list = [ -1j * fiber.gammaconstant * np.abs(A)**2 * A ]
     for n in range(1,fiber.nsteps):
+        SSFM_A = SSFM_A_history[-1]
+        SSFM_A = ssfm_step(SSFM_A,sim,fiber)
+        SSFM_A_history.append(SSFM_A)
+        SSFM_A_spectrum = getSpectrumFromPulse(sim.t,SSFM_A)
+        SSFM_A_spectrum_history.append(SSFM_A_spectrum)
         mem_sum = np.zeros_like(A, dtype=np.complex128)
         for k in range(n):
             mem_sum += weights[n - 1 - k] * F_list[k]
@@ -433,7 +440,7 @@ def FL1_direct_NL(fiber:Fiber_config,sim:SIM_config,pulse):
         if delta == 1:
             print(str(int(round(n*100/fiber.nsteps))) + " % ready")
             #print(sim.alpha)
-    return A_history, A_spectrum_history, PhotonNumber_values
+    return A_spectrum_history, SSFM_A_spectrum_history
 
 def savePlot(fileName):
     if not os.path.isdir('results/'):
