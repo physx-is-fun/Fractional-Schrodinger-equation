@@ -28,7 +28,7 @@ chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-4 #1e-3                                                                  # Fiber length [m]
-nsteps=2**11 #2**10                                                                # Number of steps we divide the fiber into
+nsteps=2**11 #2**11                                                                # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                       # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 peak_intensity = peak_power / effective_mode_area
