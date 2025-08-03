@@ -23,7 +23,7 @@ amplitude=np.sqrt(peak_power)                               # Electrical field s
 #amplitude = np.sqrt((2 * pulse_energy) / (duration * np.sqrt(np.pi / np.log(2))))
 N=2**10 #2**10                                              # Number of points                                                    
 Time_window=100e-15                                         # Time window [s]
-theta=1.0                                                   # Fractional order
+theta=1                                                   # Fractional order
 chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
