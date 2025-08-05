@@ -27,6 +27,7 @@ Time_window=100e-15                                         # Time window [s]
 chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
+nsteps=2**11 #2**11                                                                   # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                          # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(np.pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                                  # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
@@ -49,7 +50,7 @@ def getSpectrumFromPulse(time,pulse_amplitude):
     spectrum_amplitude=fftshift(fft(pulse_amplitude))*dt # Take FFT and do shift
     return spectrum_amplitude
 
-def mittag_leffler_series(alpha, z, K=80):
+def mittag_leffler_series(alpha, z, K=110):
     result = 0
     for k in range(K):
         result += z**k / gamma(alpha * k + 1)
@@ -58,26 +59,52 @@ def mittag_leffler_series(alpha, z, K=80):
 def mittag_leffler_array(alpha, arg_array):
     return np.array([mittag_leffler_series(alpha, element) for element in arg_array], dtype=np.complex128)
 
+def RHS_NL(A):
+    return -1j * gammaconstant * np.abs(A)**2 * A
+
 # Time and frequency grid
 t = np.linspace(-Time_window/2,Time_window/2,N)                                                                                  
 dt = abs(t[1] - t[0])                                   
 f = fftshift(fftfreq(N,d=dt))
 omega = f * 2 * np.pi 
 
+# spatial step
+dz = z / nsteps 
+
 # Input chirped Gaussian pulse
 A0_t = chirpedGaussianPulseTime(t,amplitude,duration,chirp)
 
+'''
 # Reference measured spectrum (can be simulated with a known alpha)
 true_alpha = 0.94
 arg = -1j * gammaconstant * getPower(A0_t) * z ** true_alpha
 A_true = A0_t * mittag_leffler_array(true_alpha, arg)
+'''
 
-A_true_fft = getSpectrumFromPulse(t,A_true)
+# Reference measured spectrum (can be simulated with a known alpha)
+true_alpha = 0.94
+A_spectrum = getSpectrumFromPulse(t,A0_t)
+righthandside = RHS_NL(A0_t)
+A_history = [A0_t]
+A_spectrum_history = [A_spectrum]
+prefactor = dz**true_alpha / gamma(true_alpha + 1)
+
+for n in range(1,nsteps):
+    A_next = A_history[n-1] - prefactor * RHS_NL(A_history[n-1] - 0.5 * prefactor * RHS_NL(A_history[n-1]))
+    A_history.append(A_next)
+    A_spectrum_next = getSpectrumFromPulse(t,A_next)
+    A_spectrum_history.append(A_spectrum_next)
+
+    delta = int(round(n*100/nsteps)) - int(round((n-1)*100/nsteps))
+    if delta == 1:
+        print(str(int(round(n*100/nsteps))) + " % ready")
+
+A_true_fft = A_spectrum_history[-1]
 spec_ref = getPower(A_true_fft)
 
 # --- Loss function: spectral L2 distance ---
 def spectral_loss(alpha):
-    if not (0.1 < alpha < 1.0):
+    if not (0.9 < alpha < 1.0):
         return np.inf
     arg = -1j * gammaconstant * getPower(A0_t) * z ** alpha
     A_model = A0_t * mittag_leffler_array(alpha, arg)
@@ -93,6 +120,8 @@ def spectral_loss(alpha):
 res = minimize_scalar(spectral_loss, bounds=(0.9, 1.0), method='bounded')
 alpha_est = res.x
 print(f"Estimated alpha: {alpha_est:.4f}")
+
+alpha_est = true_alpha
 
 # --- Plot comparison ---
 arg_fit = -1j * gammaconstant * getPower(A0_t) * z ** alpha_est
