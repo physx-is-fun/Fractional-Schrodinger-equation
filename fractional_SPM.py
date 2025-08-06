@@ -3,7 +3,6 @@ from scipy.special import gamma
 from scipy.optimize import minimize_scalar
 import matplotlib.pyplot as plt
 from scipy.fftpack import fft, ifft, fftshift, ifftshift, fftfreq
-import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("error")
 
@@ -32,7 +31,7 @@ effective_mode_diameter=5e-6                                                    
 effective_mode_area=(np.pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                                  # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
 gammaconstant=(2*np.pi*nonlinear_refractive_index)/(wavelength0*effective_mode_area)  # Nonlinear parameter [1/(W*m)]
-beta2=0                                                                     # Convert GVD to s^2/m so everything is in SI units of fused silica @ 800nm
+beta2=0                                                                               # Convert GVD to s^2/m so everything is in SI units of fused silica @ 800nm
 alpha_dB_per_m=0 
 
 # Some useful parameters
@@ -84,13 +83,19 @@ def ssfm_step(A):
     A *= nonlineairity_half_step
     return A
 
+def compute_L1_weights(mu, N):
+    weights = np.zeros(N)
+    for k in range(N):
+        weights[k] = (N - k + 1)**mu - (N - k)**mu
+    return weights
+
 # Input chirped Gaussian pulse
 A0_t = chirpedGaussianPulseTime(t,amplitude,duration,chirp)
 
 '''
 # Reference measured spectrum (can be simulated with a known alpha)
 true_alpha = 0.94
-arg = -1j * gammaconstant * getPower(A0_t) * z ** true_alpha
+arg = 1j * gammaconstant * getPower(A0_t) * z ** true_alpha
 A_true = A0_t * mittag_leffler_array(true_alpha, arg)
 '''
 
@@ -98,19 +103,24 @@ A_true = A0_t * mittag_leffler_array(true_alpha, arg)
 true_alpha = 0.95
 A_spectrum = getSpectrumFromPulse(t,A0_t)
 righthandside = RHS_NL(A0_t)
-A_history = [A0_t]
-A_spectrum_history = [A_spectrum]
-prefactor = dz**true_alpha / gamma(true_alpha + 1)
+
+MFEM_A_history = [A0_t]
+MFEM_A_spectrum_history = [A_spectrum]
 
 SSFM_A_history = [A0_t]
-SSFM_A_spectrum = getSpectrumFromPulse(t,A0_t)
-SSFM_A_spectrum_history = [SSFM_A_spectrum]
+SSFM_A_spectrum_history = [A_spectrum]
+
+FEM1_A_history = [A0_t]
+FEM1_A_spectrum_history = [A_spectrum]
+FEM1_F_list = [righthandside]
+
+FEM2_A_history = [A0_t]
+FEM2_A_spectrum_history = [A_spectrum]
+
+prefactor = dz**true_alpha / gamma(true_alpha + 1)
+weights = compute_L1_weights(true_alpha, nsteps)
 
 for n in range(1,nsteps):
-    A_next = A_history[n-1] - prefactor * RHS_NL(A_history[n-1] - 0.5 * prefactor * RHS_NL(A_history[n-1]))
-    A_history.append(A_next)
-    A_spectrum_next = getSpectrumFromPulse(t,A_next)
-    A_spectrum_history.append(A_spectrum_next)
 
     SSFM_A = SSFM_A_history[n-1]
     SSFM_A = ssfm_step(SSFM_A)
@@ -118,14 +128,35 @@ for n in range(1,nsteps):
     SSFM_A_spectrum = getSpectrumFromPulse(t,SSFM_A)
     SSFM_A_spectrum_history.append(SSFM_A_spectrum)
 
+    mem_sum = np.zeros_like(A0_t, dtype=np.complex128)
+    for k in range(n):
+        mem_sum += weights[k] * FEM1_F_list[k]
+    FEM1_A_next = FEM1_A_history[0] + prefactor * mem_sum
+    FEM1_RHS_next = RHS_NL(FEM1_A_next)
+    FEM1_F_list.append(FEM1_RHS_next)
+    FEM1_A_history.append(FEM1_A_next)
+    FEM1_A_spectrum_next = getSpectrumFromPulse(t,FEM1_A_next)
+    FEM1_A_spectrum_history.append(FEM1_A_spectrum_next)
+    
+    FEM2_A_next = FEM2_A_history[n-1] - prefactor * RHS_NL(FEM2_A_history[n-1])
+    FEM2_A_history.append(FEM2_A_next)
+    FEM2_A_spectrum_next = getSpectrumFromPulse(t,FEM2_A_next)
+    FEM2_A_spectrum_history.append(FEM2_A_spectrum_next)
+
+    MFEM_A_next = MFEM_A_history[n-1] - prefactor * RHS_NL(MFEM_A_history[n-1] - 0.5 * prefactor * RHS_NL(MFEM_A_history[n-1]))
+    MFEM_A_history.append(MFEM_A_next)
+    MFEM_A_spectrum_next = getSpectrumFromPulse(t,MFEM_A_next)
+    MFEM_A_spectrum_history.append(MFEM_A_spectrum_next)
+
     delta = int(round(n*100/nsteps)) - int(round((n-1)*100/nsteps))
     if delta == 1:
         print(str(int(round(n*100/nsteps))) + " % ready")
 
-A_true_fft = A_spectrum_history[-1]
+A_true_fft = MFEM_A_spectrum_history[-1]
 spec_ref = getPower(A_true_fft)
 A_SSFM_fft = SSFM_A_spectrum_history[-1]
-spec_SSFM = getPower(A_SSFM_fft)
+A_FEM1_fft = FEM1_A_spectrum_history[-1]
+A_FEM2_fft = FEM2_A_spectrum_history[-1]
 
 # --- Loss function: spectral L2 distance ---
 def spectral_loss(alpha):
@@ -167,7 +198,9 @@ myfile.close()
 '''
 
 plt.figure(figsize=(10,5))
-plt.plot(omega/omega0, getPower(A_true_fft)/np.max(getPower(A_true_fft)), label=f"(MFEM) Reference α={true_alpha}")
+plt.plot(omega/omega0, getPower(A_FEM1_fft)/np.max(getPower(A_FEM1_fft)), label=f"(FEM1) Reference α={true_alpha}")
+#plt.plot(omega/omega0, getPower(A_FEM2_fft)/np.max(getPower(A_FEM2_fft)), label=f"(FEM2) Reference α={true_alpha}")
+#plt.plot(omega/omega0, getPower(A_true_fft)/np.max(getPower(A_true_fft)), label=f"(MFEM) Reference α={true_alpha}")
 plt.plot(omega/omega0, getPower(A_fit_fft)/np.max(getPower(A_fit_fft)), label=f"(half-analitical) Fit α={alpha_est:.3f}", linestyle='--')
 #plt.plot(omega/omega0, getPower(A_SSFM_fft)/np.max(getPower(A_SSFM_fft)), label=f"(SSFM) α=1.0")
 plt.xlabel("Normalized frequency [a.u.]")
