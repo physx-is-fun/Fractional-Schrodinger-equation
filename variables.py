@@ -23,12 +23,12 @@ amplitude=np.sqrt(peak_power)                               # Electrical field s
 #amplitude = np.sqrt((2 * pulse_energy) / (duration * np.sqrt(np.pi / np.log(2))))
 N=2**10 #2**10                                              # Number of points                                                    
 Time_window=100e-15                                         # Time window [s]
-theta=1                                                   # Fractional order
+theta=1                                                     # Fractional order
 chirp = 0                                                   # Chirp parameter
 
 # Defining the parameters of the fiber
 Length=1e-4 #1e-3                                                                  # Fiber length [m]
-nsteps=2**11 #2**11                                                                # Number of steps we divide the fiber into
+nsteps=2**10 #2**11                                                                # Number of steps we divide the fiber into
 effective_mode_diameter=5e-6                                                       # Effective mode diameter [m] from https://www.thorlabs.com/thorproduct.cfm?partnumber=780HP
 effective_mode_area=(pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 peak_intensity = peak_power / effective_mode_area

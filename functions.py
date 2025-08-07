@@ -458,6 +458,54 @@ def FL1_direct_NL(fiber:Fiber_config,sim:SIM_config,pulse):
             print(str(int(round(n*100/fiber.nsteps))) + " % ready")
     return SSFM_A_spectrum_history, FEM1_A_spectrum_history, FEM2_A_spectrum_history, FEM3_A_spectrum_history
 
+def mittag_leffler(z, sim, terms=100):
+    out = np.zeros_like(z, dtype=np.complex128)
+    for k in range(terms):
+        out += z**k / gamma(sim.alpha * k + 1)
+    return out
+
+def attenuation_step(Ain, fiber, sim):
+    coeff = -alpha_dB_per_m * fiber.dz**sim.alpha
+    return Ain * mittag_leffler(coeff, sim)
+
+def dispersion_step(Ain, fiber, sim):
+    A_fft = fftshift(fft(ifftshift(Ain)))
+    coeff = 1j * fiber.beta2 * sim.omega**2 / 2 * fiber.dz**sim.alpha
+    dispersion = mittag_leffler(coeff, sim)
+    A_fft *= dispersion
+    Aout = fftshift(ifft(ifftshift(A_fft)))
+    return Aout
+
+def spm_half_step(Ain, fiber, sim):
+    intensity = getPower(Ain)
+    coeff = 1j * gammaconstant * intensity * (fiber.dz / 2)**sim.alpha
+    return Ain * mittag_leffler(coeff, sim)
+
+def FSSM(fiber:Fiber_config2,sim:SIM_config2,pulse):
+    A = pulse.copy()
+    A_spectrum = getSpectrumFromPulse(sim.t,A)
+    A_PhotonNumber = getPhotonNumber(A,sim)
+    A_history = [A]
+    A_spectrum_history = [A_spectrum]
+    PhotonNumber_values = [A_PhotonNumber]
+    for n in range(0,fiber.nsteps-1):
+        A1 = spm_half_step(A_history[n], fiber, sim)
+        A2 = dispersion_step(A1, fiber, sim)
+        A3 = spm_half_step(A2, fiber, sim)
+        A4 = attenuation_step(A3, fiber, sim)
+        A_next = A4
+        A_next_spectrum = getSpectrumFromPulse(sim.t,A_next)
+        A_next_PhotonNumber = getPhotonNumber(A_next,sim)
+        A_history.append(A_next)
+        A_spectrum_history.append(A_next_spectrum)
+        PhotonNumber_values.append(A_next_PhotonNumber)
+        delta = int(round(n*100/fiber.nsteps)) - int(round((n-1)*100/fiber.nsteps))
+        if delta == 1:
+            #print(str(int(round(n*100/fiber.nsteps))) + " % ready")
+            #print(sim.alpha)
+            print(sim.chirp)
+    return A_history, A_spectrum_history, PhotonNumber_values
+
 def savePlot(fileName):
     if not os.path.isdir('results/'):
         os.makedirs('results/')
