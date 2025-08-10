@@ -501,9 +501,9 @@ def FSSM(fiber:Fiber_config2,sim:SIM_config2,pulse):
         PhotonNumber_values.append(A_next_PhotonNumber)
         delta = int(round(n*100/fiber.nsteps)) - int(round((n-1)*100/fiber.nsteps))
         if delta == 1:
-            #print(str(int(round(n*100/fiber.nsteps))) + " % ready")
+            print(str(int(round(n*100/fiber.nsteps))) + " % ready")
             #print(sim.alpha)
-            print(sim.chirp)
+            #print(sim.chirp)
     return A_history, A_spectrum_history, PhotonNumber_values
 
 def savePlot(fileName):
