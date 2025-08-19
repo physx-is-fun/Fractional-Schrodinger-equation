@@ -8,6 +8,8 @@ warnings.filterwarnings("error")
 
 # constants
 speed_of_light=3*1e8                                        # Speed of light [m/s]
+epsilon_0 = 8.854187817e-12                                 # Farads per meter (F/m)
+refractive_index = 1.453317                                 # refractive index of fused silica for 800nm
 
 # Defining parameters for the simulation
 # Initialize Gaussian pulse parameters (OCTAVIUS-85M-HP from THORLABS) https://www.thorlabs.com/thorproduct.cfm?partnumber=OCTAVIUS-85M-HP
@@ -24,6 +26,7 @@ amplitude=np.sqrt(peak_power)                               # Electrical field s
 N=2**10 #2**10                                              # Number of points                                                    
 Time_window=100e-15                                         # Time window [s]
 chirp = 0                                                   # Chirp parameter
+true_alpha = 1.00                                           # Fractional order
 
 # Defining the parameters of the fiber
 nsteps=2**11 #2**11                                                                   # Number of steps we divide the fiber into
@@ -31,6 +34,8 @@ effective_mode_diameter=5e-6                                                    
 effective_mode_area=(np.pi/4)*effective_mode_diameter**2                              # Effective mode area [m^2]
 nonlinear_refractive_index=2.7*1e-20                                                  # Nonlinear refractive index [m^2/W] of fused silica @ 800 nm from https://opg.optica.org/oe/fulltext.cfm?uri=oe-27-26-37940&id=424534
 gammaconstant=(2*np.pi*nonlinear_refractive_index)/(wavelength0*effective_mode_area)  # Nonlinear parameter [1/(W*m)]
+beta0 = refractive_index * (omega0/speed_of_light)                                    # Wavenumber [1/m]
+gammaconstantwithphase = gammaconstant * beta0**(1-true_alpha) * np.exp(-1j * np.pi * true_alpha / 2)
 beta2=0                                                                               # Convert GVD to s^2/m so everything is in SI units of fused silica @ 800nm
 alpha_dB_per_m=0 
 
@@ -69,6 +74,7 @@ def mittag_leffler_series(alpha, z, K=100):
 def mittag_leffler_array(alpha, arg_array):
     return np.array([mittag_leffler_series(alpha, element) for element in arg_array], dtype=np.complex128)
 
+'''
 def RHS_NL(A):
     return -1j * gammaconstant * np.abs(A)**2 * A
 
@@ -88,19 +94,21 @@ def compute_L1_weights(mu, N):
     for k in range(N):
         weights[k] = (N - k + 1)**mu - (N - k)**mu
     return weights
-
+'''
+    
 # Input chirped Gaussian pulse
 A0_t = chirpedGaussianPulseTime(t,amplitude,duration,chirp)
 
-'''
-# Reference measured spectrum (can be simulated with a known alpha)
-true_alpha = 0.94
-arg = 1j * gammaconstant * getPower(A0_t) * z ** true_alpha
-A_true = A0_t * mittag_leffler_array(true_alpha, arg)
-'''
 
 # Reference measured spectrum (can be simulated with a known alpha)
-true_alpha = 0.95
+#arg = 1j * gammaconstant * getPower(A0_t) * z ** true_alpha
+arg = - gammaconstantwithphase * getPower(A0_t) * z ** true_alpha
+A_true = A0_t * mittag_leffler_array(true_alpha, arg)
+A_true_fft = getSpectrumFromPulse(t,A_true)
+spec_ref = getPower(A_true_fft)
+
+'''
+# Reference measured spectrum (can be simulated with a known alpha)
 A_spectrum = getSpectrumFromPulse(t,A0_t)
 righthandside = RHS_NL(A0_t)
 
@@ -157,6 +165,7 @@ spec_ref = getPower(A_true_fft)
 A_SSFM_fft = SSFM_A_spectrum_history[-1]
 A_FEM1_fft = FEM1_A_spectrum_history[-1]
 A_FEM2_fft = FEM2_A_spectrum_history[-1]
+'''
 
 # --- Loss function: spectral L2 distance ---
 def spectral_loss(alpha):
@@ -172,6 +181,7 @@ def spectral_loss(alpha):
     spec_ref_norm = spec_ref / np.max(spec_ref)
     return np.sum((spec_model - spec_ref_norm)**2)
 
+    
 # --- Estimate alpha ---
 res = minimize_scalar(spectral_loss, bounds=(0.9, 1.0), method='bounded')
 alpha_est = res.x
@@ -180,7 +190,8 @@ print(f"Estimated alpha: {alpha_est:.4f}")
 alpha_est = true_alpha
 
 # --- Plot comparison ---
-arg_fit = 1j * gammaconstant * getPower(A0_t) * z ** alpha_est
+#arg_fit = 1j * gammaconstant * getPower(A0_t) * z ** alpha_est
+arg_fit = - gammaconstantwithphase * getPower(A0_t) * z ** alpha_est
 A_fit = A0_t * mittag_leffler_array(alpha_est, arg_fit)
 A_fit_fft = getSpectrumFromPulse(t,A_fit)
 
@@ -198,10 +209,11 @@ myfile.close()
 '''
 
 plt.figure(figsize=(10,5))
-plt.plot(omega/omega0, getPower(A_FEM1_fft)/np.max(getPower(A_FEM1_fft)), label=f"(FEM1) Reference α={true_alpha}")
+#plt.plot(omega/omega0, getPower(A_FEM1_fft)/np.max(getPower(A_FEM1_fft)), label=f"(FEM1) Reference α={true_alpha}")
 #plt.plot(omega/omega0, getPower(A_FEM2_fft)/np.max(getPower(A_FEM2_fft)), label=f"(FEM2) Reference α={true_alpha}")
 #plt.plot(omega/omega0, getPower(A_true_fft)/np.max(getPower(A_true_fft)), label=f"(MFEM) Reference α={true_alpha}")
-plt.plot(omega/omega0, getPower(A_fit_fft)/np.max(getPower(A_fit_fft)), label=f"(half-analitical) Fit α={alpha_est:.3f}", linestyle='--')
+plt.plot(omega/omega0, getPower(A_fit_fft)/np.max(getPower(A_fit_fft)), label=f"(half-analitical) Fit α={alpha_est:.4f}", linestyle='--')
+plt.plot(omega/omega0, getPower(A_true_fft)/np.max(getPower(A_true_fft)), label=f"Reference α={true_alpha}")
 #plt.plot(omega/omega0, getPower(A_SSFM_fft)/np.max(getPower(A_SSFM_fft)), label=f"(SSFM) α=1.0")
 plt.xlabel("Normalized frequency [a.u.]")
 plt.ylabel("Normalized power spectral density [a.u.]")
