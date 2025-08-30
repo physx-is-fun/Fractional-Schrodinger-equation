@@ -26,7 +26,7 @@ amplitude=np.sqrt(peak_power)                               # Electrical field s
 N=2**10 #2**10                                              # Number of points                                                    
 Time_window=100e-15                                         # Time window [s]
 chirp = 0                                                   # Chirp parameter
-true_alpha = 1.00                                           # Fractional order
+true_alpha = 0.95                                           # Fractional order
 
 # Defining the parameters of the fiber
 nsteps=2**11 #2**11                                                                   # Number of steps we divide the fiber into
