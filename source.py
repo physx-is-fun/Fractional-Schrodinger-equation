@@ -207,8 +207,8 @@ bw_measured_vals = df["wavelength"].values * 1e-9  # nm → m
 bw_interp = RBFInterpolator(X, bw_measured_vals, smoothing=1e-10)
 
 # Rács generálása
-alphas = np.linspace(df["alpha"].min(), df["alpha"].max(), 30)
-gammas = np.linspace(df["gamma"].min(), df["gamma"].max(), 30)
+alphas = np.linspace(df["alpha"].min(), df["alpha"].max(), 10)
+gammas = np.linspace(df["gamma"].min(), df["gamma"].max(), 10)
 alpha_grid, gamma_grid = np.meshgrid(alphas, gammas)
 points_grid = np.column_stack([alpha_grid.ravel(), gamma_grid.ravel()])
 
