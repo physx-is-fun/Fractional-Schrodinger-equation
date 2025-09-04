@@ -170,7 +170,7 @@ def loss_bandwidth(params):
     except (FloatingPointError, RuntimeWarning, ValueError) as e:
         return np.inf
 
-
+"""
 initial_guess = [0.95, 6] # alpha and gamma respectively
 bounds = [(0.90, 1.0), (1, 20)] # alpha and gamma respectively
 
@@ -187,3 +187,70 @@ if result.success:
     print(f"Loss Bandwidth: {loss}")
 else:
     print("❌ Optimization failed:", result.message)
+
+"""
+
+import pandas as pd
+import numpy as np
+from scipy.interpolate import RBFInterpolator
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+# Beolvasás
+df = pd.read_csv("input.csv")
+
+# Az adatok: alpha, gamma, wavelength (mért szélesség)
+X = df[["alpha", "gamma"]].values
+bw_measured_vals = df["wavelength"].values * 1e-9  # nm → m
+
+# Interpolátor a bw_measured-re (minden ponthoz megadja a sajátját)
+bw_interp = RBFInterpolator(X, bw_measured_vals, smoothing=1e-10)
+
+# Rács generálása
+alphas = np.linspace(df["alpha"].min(), df["alpha"].max(), 30)
+gammas = np.linspace(df["gamma"].min(), df["gamma"].max(), 30)
+alpha_grid, gamma_grid = np.meshgrid(alphas, gammas)
+points_grid = np.column_stack([alpha_grid.ravel(), gamma_grid.ravel()])
+
+# Interpolált mért spektrumszélesség
+bw_measured_interp = bw_interp(points_grid)
+
+# Loss kiszámolása új pontokra
+Z = np.empty_like(bw_measured_interp)
+
+total = len(points_grid)
+
+for i, (alpha_val, gamma_val, bw_meas) in enumerate(zip(points_grid[:, 0],
+                                                         points_grid[:, 1],
+                                                         bw_measured_interp)):
+    try:
+        spec_model = simulate_spectrum(alpha_val, gamma_val)
+        bw_sim = analyze_pulse_characteristics(wavelength_rel, spec_model, 0.05)
+        if np.isnan(bw_sim) or np.isinf(bw_sim):
+            Z[i] = np.nan
+        else:
+            Z[i] = (bw_sim - bw_meas) ** 2
+    except:
+        Z[i] = np.nan
+
+    # 🔁 Százalékos visszajelzés
+    delta = int(round(i*100/total)) - int(round((i-1)*100/total))
+    if delta == 1:
+        print(str(int(round(i*100/total))) + " % kész")
+
+Z = Z.reshape(alpha_grid.shape)
+
+plt.figure(figsize=(10, 8))
+valid = Z[np.isfinite(Z) & (Z > 0)]
+vmin, vmax = np.percentile(valid, 2), np.percentile(valid, 98)
+
+plt.imshow(Z, extent=[gammas.min(), gammas.max(),
+                      alphas.min(), alphas.max()],
+           origin='lower', aspect='auto', cmap='plasma',
+           norm=LogNorm(vmin=vmin, vmax=vmax))
+plt.colorbar(label="Interpolált Loss")
+plt.xlabel("Gamma")
+plt.ylabel("Alpha")
+plt.title("Loss térkép – egyedi mért spektrumszélességgel (wavelength oszlop alapján)")
+plt.tight_layout()
+plt.show()
