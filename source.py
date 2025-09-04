@@ -191,66 +191,59 @@ else:
 """
 
 import pandas as pd
-import numpy as np
-from scipy.interpolate import RBFInterpolator
-import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from pykrige import OrdinaryKriging
+# pip install pykrige
+# https://towardsdatascience.com/utilising-pykrige-and-matplotlib-for-spatial-visualisation-of-geological-variations-a288b186bfd6/?source=post_page-----701c22b32e4---------------------------------------
 
-# Beolvasás
 df = pd.read_csv("input.csv")
+x = df["gamma"].values
+y = df["alpha"].values
+z = df["loss"].values
 
-# Az adatok: alpha, gamma, wavelength (mért szélesség)
-X = df[["alpha", "gamma"]].values
-bw_measured_vals = df["wavelength"].values * 1e-9  # nm → m
+# Setup Kriging
+OK = OrdinaryKriging(
+    x, y, z,
+    variogram_model="linear",
+    verbose=True, 
+    enable_plotting=True,
+    coordinates_type='geographic'
+)
 
-# Interpolátor a bw_measured-re (minden ponthoz megadja a sajátját)
-bw_interp = RBFInterpolator(X, bw_measured_vals, smoothing=1e-10)
+# Create grid
+grid_x = np.linspace(x.min(), x.max(), 200)
+grid_y = np.linspace(y.min(), y.max(), 200)
+grid_xx, grid_yy = np.meshgrid(grid_x, grid_y)
 
-# Rács generálása
-alphas = np.linspace(df["alpha"].min(), df["alpha"].max(), 50)
-gammas = np.linspace(df["gamma"].min(), df["gamma"].max(), 50)
-alpha_grid, gamma_grid = np.meshgrid(alphas, gammas)
-points_grid = np.column_stack([alpha_grid.ravel(), gamma_grid.ravel()])
+# Execute Kriging to interpolate and get variance (ss = uncertainty)
+z_interp, ss = OK.execute("grid", grid_x, grid_y)
 
-# Interpolált mért spektrumszélesség
-bw_measured_interp = bw_interp(points_grid)
+# Avoid log(0) issues by raising low values
+epsilon = 1e-20
+z_interp[z_interp <= 0] = epsilon
 
-# Loss kiszámolása új pontokra
-Z = np.empty_like(bw_measured_interp)
-
-total = len(points_grid)
-
-for i, (alpha_val, gamma_val, bw_meas) in enumerate(zip(points_grid[:, 0],
-                                                         points_grid[:, 1],
-                                                         bw_measured_interp)):
-    try:
-        spec_model = simulate_spectrum(alpha_val, gamma_val)
-        bw_sim = analyze_pulse_characteristics(wavelength_rel, spec_model, 0.05)
-        if np.isnan(bw_sim) or np.isinf(bw_sim):
-            Z[i] = np.nan
-        else:
-            Z[i] = (bw_sim - bw_meas) ** 2
-    except:
-        Z[i] = np.nan
-
-    # 🔁 Százalékos visszajelzés
-    delta = int(round(i*100/total)) - int(round((i-1)*100/total))
-    if delta == 1:
-        print(str(int(round(i*100/total))) + " % kész")
-
-Z = Z.reshape(alpha_grid.shape)
-
+# Plot interpolated map with log scale
 plt.figure(figsize=(10, 8))
-valid = Z[np.isfinite(Z) & (Z > 0)]
-vmin, vmax = np.percentile(valid, 5), np.percentile(valid, 95)
-
-plt.imshow(Z, extent=[gammas.min(), gammas.max(),
-                      alphas.min(), alphas.max()],
-           origin='lower', aspect='auto', cmap='plasma',
-           norm=LogNorm(vmin=vmin, vmax=vmax))
-plt.colorbar(label="Interpolált Loss")
+im = plt.contourf(
+    grid_xx, grid_yy, z_interp,
+    levels=100, cmap="plasma", norm=LogNorm()
+)
+plt.colorbar(im, label="Loss (log scale)")
+plt.scatter(x, y, c="black", s=10, label="Measured points")
 plt.xlabel("Gamma")
 plt.ylabel("Alpha")
-plt.title("Loss térkép – egyedi mért spektrumszélességgel (wavelength oszlop alapján)")
+plt.title("Kriging-Based Loss Interpolation")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Bonus: Plot spatial uncertainty
+plt.figure(figsize=(10, 8))
+im2 = plt.contourf(grid_xx, grid_yy, ss, levels=100, cmap="viridis")
+plt.colorbar(im2, label="Interpolation Variance (Uncertainty)")
+plt.scatter(x, y, c="black", s=10)
+plt.title("Kriging Uncertainty Map")
+plt.xlabel("Gamma")
+plt.ylabel("Alpha")
 plt.tight_layout()
 plt.show()
