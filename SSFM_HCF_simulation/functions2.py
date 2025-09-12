@@ -16,6 +16,11 @@ def getSpectrumFromPulse(time,pulse_amplitude):
     spectrum_amplitude=fftshift(fft(pulse_amplitude))*dt # Take FFT and do shift
     return spectrum_amplitude
 
+def getPulseFromSpectrum(time,spectrum_aplitude):
+    dt=time[1]-time[0]
+    pulse=ifft(ifftshift(spectrum_aplitude))/dt
+    return pulse
+
 def calculate_refractive_index(pressure_bar):
     """
     Calculate the refractive index of CO2 or He at a given 1030nm and pressure.
@@ -73,15 +78,6 @@ def calculate_gamma(n2_atm, pressure_bar, wavelength, core_diameter):
     A_eff = np.pi * core_radius**2
     gamma = (2 * np.pi * n2) / (wavelength * A_eff)
     return gamma
-
-def mittag_leffler_series(alpha, z, K=150):
-    result = 0
-    for k in range(K):
-        result += z**k / gamma(alpha * k + 1)
-    return result
-
-def mittag_leffler_array(alpha, arg_array):
-    return np.array([mittag_leffler_series(alpha, element) for element in arg_array], dtype=np.complex128)
 
 def raman_response(t):
     '''
