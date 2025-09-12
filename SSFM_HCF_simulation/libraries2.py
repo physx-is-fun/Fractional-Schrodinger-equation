@@ -3,6 +3,7 @@ import numpy as np
 from scipy.special import gamma
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
+from scipy.ndimage import convolve1d
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('TkAgg')

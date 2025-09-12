@@ -82,3 +82,34 @@ def mittag_leffler_series(alpha, z, K=150):
 
 def mittag_leffler_array(alpha, arg_array):
     return np.array([mittag_leffler_series(alpha, element) for element in arg_array], dtype=np.complex128)
+
+def raman_response(t):
+    '''
+    K. J. Blow, D. Wood, Theoretical description of transient
+    stimulated Raman scattering in optical fibers.  IEEE J. Quantum Electron.,
+    25 (1989) 1159, https://doi.org/10.1109/3.40655.
+    '''
+    tau1 = 12.2e-15  # s
+    tau2 = 32e-15  # s
+    f_R = 0.18       # Raman fractional contribution
+    
+    hR = np.zeros_like(t)
+
+    # Only positive times contribute (causal)
+    t_pos_mask = t >= 0
+    t_pos = t[t_pos_mask]
+
+    # Compute hR only for t >= 0
+    hR_pos = ((tau1**2 + tau2**2) / (tau1 * tau2**2)) * np.exp(-t_pos / tau2) * np.sin(t_pos / tau1)
+
+    # Assign
+    hR[t_pos_mask] = hR_pos
+
+    # Normalize over positive times only
+    norm = np.trapezoid(hR_pos, t_pos)
+    if norm != 0:
+        hR /= norm
+    else:
+        raise ValueError("Normalization integral is zero, check time vector resolution!")
+    
+    return f_R, hR
