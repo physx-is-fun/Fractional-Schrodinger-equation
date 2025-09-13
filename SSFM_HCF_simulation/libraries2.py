@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.widgets import Slider
 from matplotlib.widgets import Button
+from matplotlib.widgets import CheckButtons
 from scipy.fftpack import fft, ifft, fftshift, ifftshift, fftfreq
 import warnings
 warnings.filterwarnings("error")
