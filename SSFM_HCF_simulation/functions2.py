@@ -80,32 +80,72 @@ def calculate_gamma(n2_atm, pressure_bar, wavelength, core_diameter):
     return gamma
 
 def raman_response(t):
-    '''
-    K. J. Blow, D. Wood, Theoretical description of transient
-    stimulated Raman scattering in optical fibers.  IEEE J. Quantum Electron.,
-    25 (1989) 1159, https://doi.org/10.1109/3.40655.
-    '''
-    tau1 = 12.2e-15  # s
-    tau2 = 32e-15  # s
-    f_R = 0.18       # Raman fractional contribution
-    
+    """
+    Raman response function for CO₂ gas.
+    Based on literature Raman shift and relaxation time.
+
+    References:
+    - Kozlov, V. V., Efimov, A., & Wise, F. W. (2003). 
+      "Stimulated Raman scattering in gases." Quantum Electronics, 33(6), 525–529.
+      https://doi.org/10.1070/QE2003v033n06ABEH002445
+
+    - Agrawal, G. P. (2019). 
+      "Nonlinear Fiber Optics" (5th ed.). Academic Press.
+
+    - Long, D. A. (2002). 
+      "The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules." 
+      Wiley.
+
+    Raman parameters used:
+    - Raman shift: ~1388 cm⁻¹ (CO₂ symmetric stretch vibrational mode)
+    - ω_R = 2π × 41.64 THz = 2π × 4.164e13 rad/s
+    - T_R = 24 fs (approx. Raman oscillation period)
+    - Relaxation time τ ≈ 120 fs (range: 100–500 fs)
+    - f_R ≈ 0.18 (fractional Raman contribution, typical range 0.1–0.2 for gases)
+    """
+
+    f_R = 0.18  # Fractional Raman contribution (adjustable)
+    tau = 120e-15  # Relaxation time in seconds (adjustable: 100–500 fs range)
+    omega_R = 2 * np.pi * 4.164e13  # Raman frequency in rad/s (1388 cm⁻¹)
+
     hR = np.zeros_like(t)
 
-    # Only positive times contribute (causal)
+    # Only positive times contribute (causality)
     t_pos_mask = t >= 0
     t_pos = t[t_pos_mask]
 
-    # Compute hR only for t >= 0
-    hR_pos = ((tau1**2 + tau2**2) / (tau1 * tau2**2)) * np.exp(-t_pos / tau2) * np.sin(t_pos / tau1)
-
-    # Assign
+    # Exponentially decaying sinusoidal Raman response
+    hR_pos = np.exp(-t_pos / tau) * np.sin(omega_R * t_pos)
     hR[t_pos_mask] = hR_pos
 
-    # Normalize over positive times only
+    # Normalize
     norm = np.trapezoid(hR_pos, t_pos)
     if norm != 0:
         hR /= norm
     else:
-        raise ValueError("Normalization integral is zero, check time vector resolution!")
-    
+        raise ValueError("Normalization failed; check time resolution")
+
     return f_R, hR
+
+def dispersion_and_attenuation_step(A_in, attenuation, beta2, omega, dz):
+    loss_step = np.exp(-(attenuation / 2) * dz)
+    dispersion_step = np.exp(1j * (beta2 / 2) * omega**2 * dz)
+    A_fft = fftshift(fft(ifftshift(A_in)))
+    A_fft *= dispersion_step * loss_step
+    A_out = fftshift(ifft(ifftshift(A_fft)))
+    return A_out
+
+def SPM_half_step(A_in, gammavariable, dz):
+    I = getPower(A_in)
+    SPM_half_step = np.exp(1j * gammavariable * I * dz / 2)
+    A_out = A_in * SPM_half_step
+    return A_out
+
+def Raman_half_step(A_in, hR, f_R, dt, gammavariable, dz):
+    I = getPower(A_in)
+    # Apply 1D convolution along time axis
+    raman_conv = convolve1d(I, hR)
+    raman_factor = (1 - f_R) * I + f_R * raman_conv * dt
+    Raman_half_step = np.exp(1j * gammavariable * raman_factor * dz / 2)
+    A_out = A_in * Raman_half_step
+    return A_out
