@@ -130,11 +130,11 @@ def raman_response(t):
 
     return f_R, hR
 
-def dispersion_and_attenuation_step(A_in, attenuation, beta2, omega, dz):
+def dispersion_and_attenuation_step(A_in, attenuation, beta2, beta3, omega, dz):
     loss_step = np.exp(-(attenuation / 2) * dz)
-    dispersion_step = np.exp(1j * (beta2 / 2) * omega**2 * dz)
+    dispersion_step = np.exp(1j * ((1/2) * beta2 * omega**2 - (1/6) * beta3 * omega**3) * dz)
     A_fft = fftshift(fft(ifftshift(A_in)))
-    A_fft *= dispersion_step * loss_step
+    A_fft *= dispersion_step #* loss_step
     A_out = fftshift(ifft(ifftshift(A_fft)))
     return A_out
 

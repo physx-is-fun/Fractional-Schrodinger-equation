@@ -7,6 +7,7 @@ core_diameter = 250e-6
 n2_atm = 3.0e-19 # CO2
 #n2_atm = 0.35e-19 # He
 beta2 = 0
+beta3 = 0
 f_R = 0.18
 chirp = 0
 N = 2**10
