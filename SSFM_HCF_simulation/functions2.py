@@ -11,6 +11,9 @@ def getGaussianWavelengthSpectrum(wavelength, wavelength0, wavelength_FWHM):
 def getGaussianPulseTime(amplitude, time, duration):
     return amplitude * np.exp(-2*np.log(2)*((time)/(duration))**2)*(1+0j)
 
+def chirpedGaussianPulseTime(time,amplitude,duration,chirp):
+    return amplitude*np.exp(-((1+1j*chirp)/2)*(time/duration)**2)
+
 def getSpectrumFromPulse(time,pulse_amplitude):
     dt=time[1]-time[0]
     spectrum_amplitude=fftshift(fft(pulse_amplitude))*dt # Take FFT and do shift
