@@ -82,73 +82,67 @@ def calculate_gamma(n2_atm, pressure_bar, wavelength, core_diameter):
     gamma = (2 * np.pi * n2) / (wavelength * A_eff)
     return gamma
 
-def raman_response(t):
-    """
-    Raman response function for CO₂ gas.
-    Based on literature Raman shift and relaxation time.
 
-    References:
-    - Kozlov, V. V., Efimov, A., & Wise, F. W. (2003). 
-      "Stimulated Raman scattering in gases." Quantum Electronics, 33(6), 525–529.
-      https://doi.org/10.1070/QE2003v033n06ABEH002445
-
-    - Agrawal, G. P. (2019). 
-      "Nonlinear Fiber Optics" (5th ed.). Academic Press.
-
-    - Long, D. A. (2002). 
-      "The Raman Effect: A Unified Treatment of the Theory of Raman Scattering by Molecules." 
-      Wiley.
-
-    Raman parameters used:
-    - Raman shift: ~1388 cm⁻¹ (CO₂ symmetric stretch vibrational mode)
-    - ω_R = 2π × 41.64 THz = 2π × 4.164e13 rad/s
-    - T_R = 24 fs (approx. Raman oscillation period)
-    - Relaxation time τ ≈ 120 fs (range: 100–500 fs)
-    - f_R ≈ 0.18 (fractional Raman contribution, typical range 0.1–0.2 for gases)
-    """
-
-    f_R = 0.18  # Fractional Raman contribution (adjustable)
-    tau = 120e-15  # Relaxation time in seconds (adjustable: 100–500 fs range)
-    omega_R = 2 * np.pi * 4.164e13  # Raman frequency in rad/s (1388 cm⁻¹)
-
+def h_R(t):
+    gamma1 = 4.04512e12 # 1/s
+    gamma2 = 5.73287e12 # 1/s
+    omega1 = 1.5529689e14 # rad/s
+    omega2 = 3.971505e13 # rad/s
+    phi1 = 1.72437 # rad
+    phi2 = 0.44010 # rad
     hR = np.zeros_like(t)
-
     # Only positive times contribute (causality)
-    t_pos_mask = t >= 0
-    t_pos = t[t_pos_mask]
-
+    mask = t >= 0
+    t_pos = t[mask]
     # Exponentially decaying sinusoidal Raman response
-    hR_pos = np.exp(-t_pos / tau) * np.sin(omega_R * t_pos)
-    hR[t_pos_mask] = hR_pos
-
+    hR_pos = - np.exp(-gamma1 * t_pos) * np.sin(omega1 * t_pos + phi1) - np.exp(-gamma2 * t_pos) * np.sin(omega2 * t_pos + phi2)
+    hR[mask] = hR_pos
     # Normalize
     norm = np.trapezoid(hR_pos, t_pos)
     if norm != 0:
         hR /= norm
     else:
         raise ValueError("Normalization failed; check time resolution")
+    return hR
 
-    return f_R, hR
+def R_t(t, f_R):
+    t = np.asarray(t)
+    dt = t[1] - t[0]
+    R = f_R * h_R(t)
+    idx0 = np.argmin(np.abs(t))
+    if np.abs(t[idx0]) < dt / 10:
+        R[idx0] += (1 - f_R) / dt
+    else:
+        raise ValueError("Time array does not contain t=0 for delta term.")
+    return R
 
+def nonlinear_half_step(A, t, dz, gammavariable, omega, omega0, f_R):
+    dt = t[1] - t[0]
+    I = getPower(A)
+    R = R_t(t, f_R)
+    # Konvolúció: R(t) * |A|²
+    conv = fftconvolve(I, R, mode='same') * dt  # [W]
+    
+    # dA/dt számítása (középső differencia)
+    dA_dt = np.gradient(A, dt)  # ∂A/∂t
+    
+    '''
+    # dA/dt számítása (Fourier térben)
+    A_fft = fftshift(fft(ifftshift(A)))
+    dA_dt = fftshift(ifft(ifftshift(1j * omega * A_fft)))
+    '''
+    # Self-steepening korrekció: A + (i / ω₀) ∂A/∂t
+    A_eff = A + (1j / omega0) * dA_dt
+    # Nemlineáris tag: i * γ * A_eff * konvolúció
+    NL = 1j * gammavariable * conv
+    A_out = A_eff * np.exp(NL * dz / 2)
+    return A_out
+
+    
 def dispersion_and_attenuation_step(A_in, attenuation, beta2, beta3, omega, dz):
     loss_step = np.exp(-(attenuation / 2) * dz)
     dispersion_step = np.exp(1j * ((1/2) * beta2 * omega**2 - (1/6) * beta3 * omega**3) * dz)
     A_fft = fftshift(fft(ifftshift(A_in)))
     A_fft *= dispersion_step * loss_step
     A_out = fftshift(ifft(ifftshift(A_fft)))
-    return A_out
-
-def SPM_half_step(A_in, gammavariable, dz):
-    I = getPower(A_in)
-    SPM_half_step = np.exp(1j * gammavariable * I * dz / 2)
-    A_out = A_in * SPM_half_step
-    return A_out
-
-def Raman_half_step(A_in, hR, f_R, dt, gammavariable, dz):
-    I = getPower(A_in)
-    # Apply 1D convolution along time axis
-    raman_conv = convolve1d(I, hR)
-    raman_factor = (1 - f_R) * I + f_R * raman_conv * dt
-    Raman_half_step = np.exp(1j * gammavariable * raman_factor * dz / 2)
-    A_out = A_in * Raman_half_step
     return A_out
