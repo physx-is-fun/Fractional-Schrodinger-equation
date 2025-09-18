@@ -116,7 +116,16 @@ def R_t(t, f_R):
         raise ValueError("Time array does not contain t=0 for delta term.")
     return R
 
-def RightHandSide(A, t, gammavariable, omega0, f_R):
+def Attenuation(A, attenuation):
+    return - A * (attenuation / 2)
+
+def Dispersion(A, beta2, beta3, t):
+    dt = t[1] - t[0]
+    d2A_dt2 = np.gradient(np.gradient(A, dt), dt)  # Second derivative
+    d3A_dt3 = np.gradient(np.gradient(np.gradient(A, dt), dt), dt)  # Third derivative
+    return -1j * (beta2 / 2) * d2A_dt2 + (beta3 / 6) * d3A_dt3
+
+def Nonlinearity(A, t, gammavariable, omega0, f_R):
     dt = t[1] - t[0]
     I = getPower(A)
     R = R_t(t, f_R)
@@ -127,21 +136,18 @@ def RightHandSide(A, t, gammavariable, omega0, f_R):
     # ∂/∂T [A * conv] (central difference)
     dNL_dt = np.gradient(NL, dt)
     # Self-steepening correction
-    RHS = 1j * gammavariable * (NL + (1j / omega0) * dNL_dt)
-    return RHS
+    return 1j * gammavariable * (NL + (1j / omega0) * dNL_dt)
 
-def RK4(A, t, dz, gammavariable, omega0, f_R):
-    k1 = RightHandSide(A, t, gammavariable, omega0, f_R)
-    k2 = RightHandSide(A + dz/2 * k1, t, gammavariable, omega0, f_R)
-    k3 = RightHandSide(A + dz/2 * k2, t, gammavariable, omega0, f_R)
-    k4 = RightHandSide(A + dz * k3, t, gammavariable, omega0, f_R)
+def RightHandSide(A, attenuation, beta2, beta3, t, gammavariable, omega0, f_R):
+    att = Attenuation(A, attenuation)
+    disp = Dispersion(A, beta2, beta3, t)
+    nonlin = Nonlinearity(A, t, gammavariable, omega0, f_R)
+    return att + disp + nonlin
+
+def RK4(A, attenuation, dz, beta2, beta3, t, gammavariable, omega0, f_R):
+    k1 = RightHandSide(A, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
+    k2 = RightHandSide(A + dz/2 * k1, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
+    k3 = RightHandSide(A + dz/2 * k2, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
+    k4 = RightHandSide(A + dz * k3, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
     A_out = A + (dz / 6) * (k1 + 2*k2 + 2*k3 + k4)
-    return A_out
-
-def dispersion_and_attenuation_step(A_in, attenuation, beta2, beta3, omega, dz):
-    loss_step = np.exp(-(attenuation / 2) * dz)
-    dispersion_step = np.exp(1j * ((1/2) * beta2 * omega**2 - (1/6) * beta3 * omega**3) * dz)
-    A_fft = fftshift(fft(ifftshift(A_in)))
-    A_fft *= dispersion_step * loss_step
-    A_out = fftshift(ifft(ifftshift(A_fft)))
     return A_out
