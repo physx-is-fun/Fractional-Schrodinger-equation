@@ -116,29 +116,28 @@ def R_t(t, f_R):
         raise ValueError("Time array does not contain t=0 for delta term.")
     return R
 
-def nonlinear_half_step(A, t, dz, gammavariable, omega, omega0, f_R):
+def RightHandSide(A, t, gammavariable, omega0, f_R):
     dt = t[1] - t[0]
     I = getPower(A)
     R = R_t(t, f_R)
-    # Konvolúció: R(t) * |A|²
+    # Convolution: R(t) * |A|²
     conv = fftconvolve(I, R, mode='same') * dt  # [W]
-    
-    # dA/dt számítása (középső differencia)
-    dA_dt = np.gradient(A, dt)  # ∂A/∂t
-    
-    '''
-    # dA/dt számítása (Fourier térben)
-    A_fft = fftshift(fft(ifftshift(A)))
-    dA_dt = fftshift(ifft(ifftshift(1j * omega * A_fft)))
-    '''
-    # Self-steepening korrekció: A + (i / ω₀) ∂A/∂t
-    A_eff = A + (1j / omega0) * dA_dt
-    # Nemlineáris tag: i * γ * A_eff * konvolúció
-    NL = 1j * gammavariable * conv
-    A_out = A_eff * np.exp(NL * dz / 2)
+    # Nonlinear term: A * convolution
+    NL = A * conv
+    # ∂/∂T [A * conv] (central difference)
+    dNL_dt = np.gradient(NL, dt)
+    # Self-steepening correction
+    RHS = 1j * gammavariable * (NL + (1j / omega0) * dNL_dt)
+    return RHS
+
+def RK4(A, t, dz, gammavariable, omega0, f_R):
+    k1 = RightHandSide(A, t, gammavariable, omega0, f_R)
+    k2 = RightHandSide(A + dz/2 * k1, t, gammavariable, omega0, f_R)
+    k3 = RightHandSide(A + dz/2 * k2, t, gammavariable, omega0, f_R)
+    k4 = RightHandSide(A + dz * k3, t, gammavariable, omega0, f_R)
+    A_out = A + (dz / 6) * (k1 + 2*k2 + 2*k3 + k4)
     return A_out
 
-    
 def dispersion_and_attenuation_step(A_in, attenuation, beta2, beta3, omega, dz):
     loss_step = np.exp(-(attenuation / 2) * dz)
     dispersion_step = np.exp(1j * ((1/2) * beta2 * omega**2 - (1/6) * beta3 * omega**3) * dz)
