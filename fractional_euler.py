@@ -26,10 +26,10 @@ beta2*=(1e-30)
 alpha_dB_per_m = 0.2 * 1e-3
 
 # Fractional order
-mu = 0.95                   
+mu = 1                   
 
 # Spatial grid
-z_max = 1e-2           
+z_max = 1e-3           
 Nz = 2**10                  
 dz = z_max / Nz
 

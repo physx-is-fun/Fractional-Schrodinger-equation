@@ -453,6 +453,7 @@ def FL1_direct_NL(fiber:Fiber_config,sim:SIM_config,pulse):
         FEM3_A_spectrum_next = getSpectrumFromPulse(sim.t,FEM3_A_next)
         FEM3_A_spectrum_history.append(FEM3_A_spectrum_next)
 
+        #Progress
         delta = int(round(n*100/fiber.nsteps)) - int(round((n-1)*100/fiber.nsteps))
         if delta == 1:
             print(str(int(round(n*100/fiber.nsteps))) + " % ready")

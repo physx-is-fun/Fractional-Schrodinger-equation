@@ -13,6 +13,7 @@ chirp = 0
 N = 2**10 + 1
 nsteps = 2*10 + 1
 z = 1
+alpha = 1
 filepath = "Meas_175.csv"
 pressure = 0.5
 repetition_frequency = 50                                    

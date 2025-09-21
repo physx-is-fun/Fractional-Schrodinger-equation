@@ -138,6 +138,28 @@ def Nonlinearity(A, t, gammavariable, omega0, f_R):
     # Self-steepening correction
     return 1j * gammavariable * (NL + (1j / omega0) * dNL_dt)
 
+def Attenuation2(A, attenuation, alpha, beta0):
+    return - 1j* beta0**(1-alpha) * np.exp(-1j*alpha*np.pi/2) * A * (attenuation / 2)
+
+def Dispersion2(A, beta2, beta3, t, alpha, beta0):
+    dt = t[1] - t[0]
+    d2A_dt2 = np.gradient(np.gradient(A, dt), dt)  # Second derivative
+    d3A_dt3 = np.gradient(np.gradient(np.gradient(A, dt), dt), dt)  # Third derivative
+    return beta0**(1-alpha) * np.exp(-1j*alpha*np.pi/2) * (beta2 / 2) * d2A_dt2 + 1j * beta0**(1-alpha) * np.exp(-1j*alpha*np.pi/2) * (beta3 / 6) * d3A_dt3
+
+def Nonlinearity2(A, t, gammavariable, omega0, f_R, alpha, beta0):
+    dt = t[1] - t[0]
+    I = getPower(A)
+    R = R_t(t, f_R)
+    # Convolution: R(t) * |A|²
+    conv = fftconvolve(I, R, mode='same') * dt  # [W]
+    # Nonlinear term: A * convolution
+    NL = A * conv
+    # ∂/∂T [A * conv] (central difference)
+    dNL_dt = np.gradient(NL, dt)
+    # Self-steepening correction
+    return -beta0**(1-alpha) * np.exp(-1j*alpha*np.pi/2) * gammavariable * (NL + (1j / omega0) * dNL_dt)
+
 def RightHandSide(A, attenuation, beta2, beta3, t, gammavariable, omega0, f_R):
     att = Attenuation(A, attenuation)
     disp = Dispersion(A, beta2, beta3, t)
@@ -150,4 +172,19 @@ def RK4(A, attenuation, dz, beta2, beta3, t, gammavariable, omega0, f_R):
     k3 = RightHandSide(A + dz/2 * k2, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
     k4 = RightHandSide(A + dz * k3, attenuation, beta2, beta3, t, gammavariable, omega0, f_R)
     A_out = A + (dz / 6) * (k1 + 2*k2 + 2*k3 + k4)
+    return A_out
+
+def RightHandSide2(A, attenuation, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0):
+    att = Attenuation2(A, attenuation, alpha, beta0)
+    disp = Dispersion2(A, beta2, beta3, t, alpha, beta0)
+    nonlin = Nonlinearity2(A, t, gammavariable, omega0, f_R, alpha, beta0)
+    return att + disp + nonlin
+
+def FRK4(A, attenuation, dz, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0):
+    k1 = ((1**(-alpha))*dz**alpha) / gamma(1+alpha)
+    K1 = k1 * RightHandSide2(A, attenuation, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0)
+    K2 = k1 * RightHandSide2(A + K1/2, attenuation, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0)
+    K3 = k1 * RightHandSide2(A + K2/2, attenuation, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0)
+    K4 = k1 * RightHandSide2(A + K3, attenuation, beta2, beta3, t, gammavariable, omega0, f_R, alpha, beta0)
+    A_out = A + (1 / 6) * (K1 + 2*K2 + 2*K3 + K4)
     return A_out

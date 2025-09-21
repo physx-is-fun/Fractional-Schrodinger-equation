@@ -26,7 +26,7 @@ beta2*=(1e-30)
 alpha_dB_per_m = 0.2 * 1e-3
 
 # Order of derivative
-mu = 0.99 
+mu = 1 
 
 # Spatial grid
 z_max = 1e-4 
